@@ -166,7 +166,18 @@ class Layer():
             self.weights = np.zeros( self.layerShape )
 
 
+    def setWeights( self, weights ):
+        """
+        Sets the Layers weights
+        """
+        assert self.weights.shape == weights.shape, "New Weights have wrong shape"
+        self.weights = weights
+
+
     def getWeights( self ):
+        """
+        Gets the Layers weights
+        """
         return self.weights
 
 
@@ -179,6 +190,8 @@ class Layer():
         self.weights = self.learning( self.weights, x, y, eta )
         if self.normalize:
             self.weights = normalizeRows( self.weights )
+            # Deal with rows which where completely 0
+            np.nan_to_num( self.weights, copy=False, nan=0 )
 
 
     def compulearn( self, x, y=None, eta=0.25 ):
@@ -216,7 +229,7 @@ class Layer():
         # Set seed
         np.random.seed( seed )
         for x in range( epochs ):
-            print( f"Epoch {x}:", end='' )
+            print( f"Epoch {x}: ", end='' )
             for i in np.random.permutation( X.shape[0] ):
                 self.learn( X[i], y[i], eta )
 
@@ -283,7 +296,7 @@ class Network:
         # Set seed
         np.random.seed( seed )
         for x in range( epochs ):
-            print( f"Epoch {x}:", end='' )
+            print( f"Epoch {x}: ", end='' )
             for i in np.random.permutation( X.shape[0] ):
                 self.learn( X[i], y[i], eta )
 
@@ -474,6 +487,7 @@ sigmoid = lambda x: ( 1 / ( 1 + np.exp( -x ) ) )
 relu = lambda x: np.maximum( 0, x )
 # Create an array of activation functions for later convenience
 activationFunctions = [ linear, threshhold, sigmoid, relu ]
+activationFunctionNames = [ "linear", "threshhold", "sigmoid", "relu" ]
 ```
 
 Visualizing the activation functions:
@@ -530,7 +544,7 @@ In this section different architectures are systematically explored by altering 
 
 First, I try learning single Layer Networks, they are easy and straightforward to teach.
 
-Note that Oja's network needs to be initialized with random values because it will not learn if not. @todo: is this true for single layer networks? If yes, initialize decay and hebb network with same weights as ojas
+Note that Oja's network needs to be initialized with at least one weight which is not 0 for every Neuron, as the normalization will produce invalid values if not. Nevertheless, the weights are initialized to 0, but be aware that there is a runtime error because of that (which does not effect the outcome). @question: initialize in a different way?
 
 ```python
 N_INPUT = 28 * 28
@@ -540,7 +554,7 @@ np.random.seed( 1 )
 
 oneLNhebb = Layer( N_INPUT, N_OUTPUT )
 oneLNdeca = Layer( N_INPUT, N_OUTPUT, learning=r_decay )
-oneLNojas = Layer( N_INPUT, N_OUTPUT, learning=r_ojas, random=True, normalize=True )
+oneLNojas = Layer( N_INPUT, N_OUTPUT, learning=r_ojas, normalize=True )
 ```
 
 ```python
@@ -558,6 +572,7 @@ print( "\nDecay" )
 oneLNdeca.train( X_train, y_train, epochs=5, eta=0.1, seed=None )
 print( "\nOjas" )
 oneLNojas.train( X_train, y_train, epochs=5, eta=0.1, seed=None )
+# Note: When initializing the Oja's Network there will be a runtime warning for true_divide. This is handled.
 ```
 
 ```python
@@ -574,38 +589,47 @@ Now we can have a look at how the activation functions change our networks predi
 ```python
 N_INPUT = 28 * 28
 N_OUTPUT = 10
+nTest = y_test.shape[0]
+epochs = 5  # Set lower to save significant amount of computation time
 
 # Create a dictionary with all the networks
-oneLN = { 'hebb': [], 'decay': [], 'ojas': [] }
-for aF in activationFunctions:
-    pass
+oneLNacc = { 'hebb': [], 'decay': [], 'ojas': [] }
+oneLNind = { 'hebb': [], 'decay': [], 'ojas': [] }
 
-oneLNhebb = Layer( N_INPUT, N_OUTPUT, activationFunction=relu )
-oneLNojas = Layer( N_INPUT, N_OUTPUT, learning=r_ojas, activationFunction=relu )
-
-np.random.seed( 1 )
-
-# Before Training
-print( "Before Training")
-correct, iWrong = runTest( X_test, y_test, oneLNhebb )
-print( f"Hebb: {correct}/{y_test.shape[0]} correct: { correct/y_test.shape[0] * 100 } %" )
-correct, iWrong = runTest( X_test, y_test, oneLNojas )
-print( f"Ojas: {correct}/{y_test.shape[0]} correct: { correct/y_test.shape[0] * 100 } %" )
-
-# Training
-print( "Training" )
-print( "Hebb" )
-oneLNhebb.train( X_train, y_train, epochs=5, eta=0.1, seed=None )
-print( "Ojas")
-oneLNojas.train( X_train, y_train, epochs=5, eta=0.1, seed=None )
-
-# After Training
-print( "After Training" )
-correct, iWrong = runTest( X_test, y_test, oneLNhebb )
-print( f"Hebb: {correct}/{y_test.shape[0]} correct: { correct/y_test.shape[0] * 100 } %" )
-correct, iWrong = runTest( X_test, y_test, oneLNojas )
-print( f"Ojas: {correct}/{y_test.shape[0]} correct: { correct/y_test.shape[0] * 100 } %" )
+for i, aF in enumerate( activationFunctions ):
+    print( activationFunctionNames[i] )
+    # Initialize Networks
+    hebb = Layer( N_INPUT, N_OUTPUT, learning=r_hebb, activationFunction=aF )
+    deca = Layer( N_INPUT, N_OUTPUT, learning=r_decay, activationFunction=aF )
+    ojas = Layer( N_INPUT, N_OUTPUT, learning=r_ojas, activationFunction=aF)
+    # Run test before
+    hebb_pre_acc, hebb_pre_iWrong = runTest( X_test, y_test, hebb )
+    deca_pre_acc, deca_pre_iWrong = runTest( X_test, y_test, deca )
+    ojas_pre_acc, ojas_pre_iWrong = runTest( X_test, y_test, ojas )
+    # Train
+    np.random.seed( 1 )
+    hebb.train( X_train, y_train, epochs=epochs, eta=0.1, seed=None )
+    np.random.seed( 1 )
+    deca.train( X_train, y_train, epochs=epochs, eta=0.1, seed=None )
+    np.random.seed( 1 )
+    ojas.train( X_train, y_train, epochs=epochs, eta=0.1, seed=None )
+    # Run test after
+    hebb_post_acc, hebb_post_iWrong = runTest( X_test, y_test, hebb )
+    deca_post_acc, deca_post_iWrong = runTest( X_test, y_test, deca )
+    ojas_post_acc, ojas_post_iWrong = runTest( X_test, y_test, ojas )
+    # Save data in dictionary
+    oneLNacc['hebb'] = ( hebb_pre_acc / nTest, hebb_post_acc / nTest )
+    oneLNind['hebb'] = ( hebb_pre_iWrong, hebb_post_iWrong )
+    oneLNacc['deca'] = ( deca_pre_acc / nTest, deca_post_acc / nTest )
+    oneLNind['deca'] = ( deca_pre_iWrong, deca_post_iWrong )
+    oneLNacc['ojas'] = ( ojas_pre_acc / nTest, ojas_post_acc / nTest )
+    oneLNind['ojas'] = ( ojas_pre_iWrong, ojas_post_iWrong )
+    
+print( "Done" )
 ```
+
+@todo: fix the thing with the threshhold function or delete it
+
 
 ### Multi Layer Networks
 
