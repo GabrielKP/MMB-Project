@@ -25,7 +25,7 @@ AS.200.313, Models of Mind and Brain, Prof. Honey
 
 Project draft, Gabriel Kressin
 
-# How does a neural-network-classifier learning with Hebbs rule compare to a neural-network-classifier learning with Oja's rule?
+# How does a neural-network-classifier learning with Hebbs rule compare to a neural-network-classifier learning with Oja's rule regarding accuracy, learning speed and other features?
 
 This project builds and compares three networks for the MNIST 10-digit classification (LeCun, Y., & Cortes, C., & Burges, C.J.C.) only differing in their learning rule:
     
@@ -656,14 +656,14 @@ oneLNacc
 
 ### Multi Layer Networks
 
-First, a 2 layer network is created.
+Now, a 2 layer network is created.
 
 Even though it seems simple, training now becomes non-trivial as it is unclear which output intermediat neurons should try to learn. There seem to be two approaches:
 
 1. Initialize weights randomly, let the network learn just what it is producing and hope it creates enough diversity in outputs for a good categorization.
-2. Force the intermediate Neurons to learn specific patterns, which arguably is not as biologically plausible anymore. This was done in Amato et al. (2019).
+2. Force the intermediate Neurons to learn specific patterns, which arguably is not as biologically plausible anymore. A version of this was done in Amato et al. (2019), which can be seen in the chapter "3.3 Supervised Hebbian Learning".
 
-This project only looks at the first approach. (If there is some time I will try to include the second approach)
+At the moment I am not getting the first approach to work properly with an ojas based network. Probably I will include both approaches in the end.
 
 ```python
 N_INPUT = 28 * 28
@@ -753,10 +753,10 @@ The network
 
 
 
- ## Future Work
- 
- There is many interesting things to have a longer look at:
- 
+## Future Work
+
+There is many interesting things to have a longer look at:
+
 - How would a spiking neural network with the same learning rules do, compared to the models shown here.
 - Is there a better and actually effective way to train the intermediate layers?
 - How would a convoutional architecture perform?
