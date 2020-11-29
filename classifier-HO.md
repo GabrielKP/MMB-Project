@@ -322,6 +322,9 @@ def scaleTo( xs ):
     return ( xs / ( max( abs( np.min( xs, axis = 0 ) ), np.max( xs, axis = 0 ) ) ) )
 
 def printStats( xs, topFive=False ):
+    """
+    prints basic information about a numpy array along axis 1
+    """
     if topFive:
         print( f"Top 5 entries:\n { xs[ 0:5 ] }" )
     print( f"Mean: { np.mean( xs, axis = 0 ) }" )
@@ -397,9 +400,11 @@ print( t.weights )
 t.compute( i )
 ```
 
-## Learning Rules
+## Learning rules
 
-### Hebbs Rule
+The learning rules define how exactly a neuron updates its weights given a specific input and output. All learning rules in this project are 'biologically plausible' in the sense of them being local learning rules.
+
+### Plain Hebb rule
 
 Hebbs Rule can be summarized as "What fires together, wires together".
 The weights $\mathbf{W}$ are updated according to the given input, if the neuron was supposed to be activated. In other words, given a pair $(\mathbf{x}, \mathbf{y})$ the updated weights $\mathbf{\hat{W}}$ are computed:
@@ -408,13 +413,17 @@ The weights $\mathbf{W}$ are updated according to the given input, if the neuron
 \mathbf{\hat{W}} = \mathbf{W} + \eta \mathbf{y}\mathbf{x}^{T}
 \end{equation} 
 
-### Hebbs Decay Rule
+### Hebb with decay rule
+
+Hebbs plain Rule has a big drawback: the weights explode indefinitly to infinity. To stop that from happening a decay term is introduced. This leads to following equation:
 
 \begin{equation}         
 \mathbf{\hat{W}} = \mathbf{W} + \eta \mathbf{y}( \mathbf{x} - \mathbf{W} )
 \end{equation}
 
-### Ojas Rule
+### Oja's Rule
+
+Another way to stop the weight explosion is by normalizing the weights of each neuron to 1. Additionally the 'forgetting' part is limited to the correct outputs. This gives rise to Oja's rule. This leads to other interesting effects, such as that after enough learning attempts the weights of a single neuron represent the first principal component towards the learnt activation.
 
 \begin{equation}         
 \mathbf{\hat{W}} = \mathbf{W} + \eta \mathbf{y}( \mathbf{x} - \mathbf{y} \mathbf{W} )
@@ -422,42 +431,65 @@ The weights $\mathbf{W}$ are updated according to the given input, if the neuron
 
 ### Rules in Python
 
-Finally, let's implement the rules in Python:
+Finally, let's implement the rules in Python! For this project the learning rules are implemented as lambda functions. It is important that they work for multiple Neurons stacked on top of each other.
 
 
 ```python
 # Learning rules in Python
 r_hebb = lambda W, x, y, eta: W + eta * np.outer( y, x.T )
-r_hebb_decay = lambda W, x, y, eta: W + eta * y * ( x - W )
+r_hebb_decay = lambda W, x, y, eta: W + eta * ( ( x - W ) * y[ :, None ] )
 r_ojas = lambda W, x, y, eta: W + eta * ( ( x - W * y[ :, None ] ) * y[ :, None ] )
-# Nonlinearity needs to be taken into account!
-```
-
-```python
-w = np.arange( 1, 22, 1 ).reshape( 7, 3 )
-print( w )
-t = np.array( [ 0, 0, 0, 1, 0, 0, 0 ] )
-# print( t[:, None] )
-# print( w * t[:, None] )
-x = np.array( [ 2, 3, 4 ] )
-print( x )
-print( x - w )
+# @todo: does nonlinearity need to be taken into account?
 ```
 
 ## Activation functions
 
+The learning rules from above all assume a linear Neuron. But some nonlinear functions lead to interesting properties and potentially could improve the classification accuracy! 
+
+@todo: include citation of nonlinear Hebb networks with interesting properties (and check on them(?))
+
+Below this section you can find a visualization of the activation functions.
+
 ### Linear
 
-### Simple Threshhold
+This one is simple:
+
+\begin{equation}
+    f(x) = x
+\end{equation}
+
+### Simple threshhold
+
+The 'simple threshhold' simply classifies things into 0 or 1. Firing or not firing.
+
+\begin{equation}
+    f(x) =
+    \begin{cases}
+        1 &\text{if } x > 0.5 \\
+        0 &\text{else}
+    \end{cases}
+\end{equation}
 
 ### Sigmoid
 
+The 'sigmoid' function squashes all outputs between 0 and 1 in a nonlinear way:
+
+\begin{equation}
+    f(x) = \frac{1}{1 + e^{-x}}
+\end{equation}
+
 ### ReLU
+
+'ReLU' stands for 'Rectified Linear Unit'. For every $x$ below 0 the activation stays 0, above 0 it behaves like the linear activation function.
+
+\begin{equation}
+    f(x) = \max{( 0, x )}
+\end{equation}
 
 ```python
 # Define the Activation functions, need to work with vector inputs
 linear = lambda x: x
-threshhold = lambda x: ( x > 0 ).astype( np.int )
+threshhold = lambda x: ( x > 0.5 ).astype( np.int )
 sigmoid = lambda x: ( 1 / ( 1 + np.exp( -x ) ) )
 relu = lambda x: np.maximum( 0, x )
 ```
@@ -470,14 +502,14 @@ plt.plot( test, linear( test ) )
 plt.plot( test, threshhold( test ) )
 plt.plot( test, sigmoid( test ) )
 plt.plot( test, relu( test ) )
-plt.legend( ["Linear", "Threshhold", "Sigmoid", "ReLU"] )
+plt.legend( ["Linear", "Threshhold", "Sigmoid", "ReLU"] );
 ```
 
 ## The Data
 
 The MNIST Database provides 60.000 training examples and 10.000 test examples without needing to preprocess or format them.
 
-First, let's load the data in, there is 2 things to keep in mind:
+First, the data needs to be loaded in, there is 2 things to keep in mind:
 - The labels are converted into One-Hot-Encodings. ( e.g. 1 -> [0,1,0,0,...], 2 -> [0,0,1,0,...] )
 - The images have pixel values from 0 to 255, so the data is divided by 255 to have all data between 0 and 1.
 
@@ -491,10 +523,6 @@ X_test = readImages( "data/t10k-images-idx3-ubyte.gz" ) / 255
 y_test = np.array( [ np.array( [ 1 if x == label else 0 for x in range(10) ] ) for label in readLabels( "data/t10k-labels-idx1-ubyte.gz" ) ] )
 ```
 
-```python
-print( X_train[0] )
-```
-
 We can have a look at the train data:
 
 ```python
@@ -506,119 +534,6 @@ And the test data:
 ```python
 plotData( np.reshape( X_test, ( X_test.shape[0] , 28, 28 ) ), y_test, 20 )
 ```
-
-## Simple Test
-
-To make sure the learning rules work, a very simple test.
-
-This is a dataset from a [blog](https://towardsdatascience.com/solving-a-simple-classification-problem-with-python-fruits-lovers-edition-d20ab6b071d2) discussing simple classifiers: [data](https://raw.githubusercontent.com/susanli2016/Machine-Learning-with-Python/master/fruit_data_with_colors.txt).
-
-I use this data, extract only the oranges and apples and then do binary classification.
-
-
-The data is split into train and test. Additionally it is scaled to be between -1 and 1.
-
-```python
-# Read the fruit data in
-data = pd.read_table( "data/fruit_data_with_colors.txt" )
-
-# Exctact apples and oranges
-fruits = data[( (data.fruit_name == "apple") | (data.fruit_name == "orange" ) )]
-
-# Extract features and labels; labels: 1 == apple, 0 == orange
-featurenames = ['mass', 'width', 'height', 'color_score']
-fruit_features = fruits[ featurenames ].to_numpy()
-
-printStats( fruit_features )
-
-for i in range( len( featurenames ) ):
-    fruit_features[:,i] = scaleTo( fruit_features[:,i] )
-
-print( "After Scaling" )
-printStats( fruit_features )
-
-fruit_labels = ( fruits.fruit_name == "apple" ).to_numpy().astype( int )
-```
-
-```python
-# Extract random entries for test, without double drawing
-random.seed( 20 )
-N_TEST = 10
-test_index = [ 1, 1 ]
-while len( test_index ) != len( set( test_index ) ):
-    test_index = [ random.randint( 0, len( fruit_features ) - 1 ) for _ in range( N_TEST ) ]
-train_index = [ x for x in range( len( fruit_features ) ) if x not in test_index ]
-
-# Test-set
-test_features = fruit_features[test_index]
-test_labels = fruit_labels[test_index]
-
-# Train-set
-train_features = fruit_features[train_index]
-train_labels = fruit_labels[train_index]
-```
-
-Create the single Neurons using the Layer Class.
-
-```python
-# Create the neurons
-hebb = Layer( 4, 1, learning=r_hebb )
-hebb_decay = Layer( 4, 1, learning=r_hebb_decay )
-ojas = Layer( 4, 1, learning=lambda W, x, y, eta: W + eta * y * ( x - W * y ) )
-```
-
-```python
-# Categorize before Training
-# Expectation: All perform the same (as they have been initialized with the same weights)
-print( "Hebb" )
-quicktest( hebb, test_features, test_labels )
-print( "Hebb Decay" )
-quicktest( hebb_decay, test_features, test_labels )
-print( "Ojas" )
-quicktest( ojas, test_features, test_labels )
-```
-
-```python tags=[]
-# Set sampling order
-random.seed( 1 )
-order = [ x for x in range( len( train_features ) ) ]
-# Train Neurons for 5 iterations
-for x in range( 5 ):
-    # Train in random order
-    random.shuffle( order )
-    for i in range( len( order ) ):
-        ireal = order[i]
-        hebb.learn( train_features[ireal], train_labels[ireal], eta=0.2 )
-        hebb_decay.learn( train_features[ireal], train_labels[ireal], eta=0.2 )
-        ojas.learn( train_features[ireal], train_labels[ireal], eta=0.2 )
-```
-
-```python
-# Print their final weights
-print( f"Hebb: { hebb.weights }" )
-print( f"Hebb_decay: { hebb_decay.weights }" )
-print( f"Ojas: { ojas.weights }" )
-```
-
-```python
-# Categorize after Training
-# Expectation: All perform the same (as they have been initialized with the same weights)
-print( "Hebb" )
-quicktest( hebb, test_features, test_labels )
-print( "Hebb Decay" )
-quicktest( hebb_decay, test_features, test_labels )
-print( "Ojas" )
-quicktest( ojas, test_features, test_labels )
-```
-
-As you can see, the classification accuracy is not that great. Multiple reasons:
-- limited classification power of one single neuron + local learning rule
-- data is difficult for this learning rule to learn
-- not much data to learn from
-
-BUT, it works!
-Now that we have made that sure, we can go on to building the architecture of both classifiers!
-
 
 ## The Architecture
 
@@ -759,10 +674,16 @@ print( runTest( X_test, y_test, twoLayer )[0] / X_test.shape[0] * 100 )
 
 
 
-## References
+# References
 
 LeCun, Y., & Cortes, C., & Burges, C.J.C., The MNIST Database of Handwritten Digits \[Accessed 26.11.2020 18:00 CET\]. http://yann.lecun.com/exdb/mnist/
 
+
+
+
+# Old Code Parking Lot
+
+Do not regard this section, I am just parking old code in case I need it again - it will not be present in the final project.
 
 ```python
 # Legacy, just in case I need it again
@@ -808,3 +729,114 @@ LeCun, Y., & Cortes, C., & Burges, C.J.C., The MNIST Database of Handwritten Dig
 #                 break
 #         print( self.weights )
 ```
+
+## Simple Test
+
+To make sure the learning rules work, a very simple test.
+
+This is a dataset from a [blog](https://towardsdatascience.com/solving-a-simple-classification-problem-with-python-fruits-lovers-edition-d20ab6b071d2) discussing simple classifiers: [data](https://raw.githubusercontent.com/susanli2016/Machine-Learning-with-Python/master/fruit_data_with_colors.txt).
+
+I use this data, extract only the oranges and apples and then do binary classification.
+
+The data is split into train and test. Additionally it is scaled to be between -1 and 1.
+
+```python
+# Read the fruit data in
+data = pd.read_table( "data/fruit_data_with_colors.txt" )
+
+# Exctact apples and oranges
+fruits = data[( (data.fruit_name == "apple") | (data.fruit_name == "orange" ) )]
+
+# Extract features and labels; labels: 1 == apple, 0 == orange
+featurenames = ['mass', 'width', 'height', 'color_score']
+fruit_features = fruits[ featurenames ].to_numpy()
+
+printStats( fruit_features )
+
+for i in range( len( featurenames ) ):
+    fruit_features[:,i] = scaleTo( fruit_features[:,i] )
+
+print( "After Scaling" )
+printStats( fruit_features )
+
+fruit_labels = ( fruits.fruit_name == "apple" ).to_numpy().astype( int )
+```
+
+```python
+# Extract random entries for test, without double drawing
+random.seed( 20 )
+N_TEST = 10
+test_index = [ 1, 1 ]
+while len( test_index ) != len( set( test_index ) ):
+    test_index = [ random.randint( 0, len( fruit_features ) - 1 ) for _ in range( N_TEST ) ]
+train_index = [ x for x in range( len( fruit_features ) ) if x not in test_index ]
+
+# Test-set
+test_features = fruit_features[test_index]
+test_labels = fruit_labels[test_index]
+
+# Train-set
+train_features = fruit_features[train_index]
+train_labels = fruit_labels[train_index]
+```
+
+Create the single Neurons using the Layer Class.
+
+```python
+# Create the neurons
+hebb = Layer( 4, 1, learning=r_hebb )
+hebb_decay = Layer( 4, 1, learning=r_hebb_decay )
+ojas = Layer( 4, 1, learning=lambda W, x, y, eta: W + eta * y * ( x - W * y ) )
+```
+
+```python
+# Categorize before Training
+# Expectation: All perform the same (as they have been initialized with the same weights)
+print( "Hebb" )
+quicktest( hebb, test_features, test_labels )
+print( "Hebb Decay" )
+quicktest( hebb_decay, test_features, test_labels )
+print( "Ojas" )
+quicktest( ojas, test_features, test_labels )
+```
+
+```python tags=[]
+# Set sampling order
+random.seed( 1 )
+order = [ x for x in range( len( train_features ) ) ]
+# Train Neurons for 5 iterations
+for x in range( 5 ):
+    # Train in random order
+    random.shuffle( order )
+    for i in range( len( order ) ):
+        ireal = order[i]
+        hebb.learn( train_features[ireal], train_labels[ireal], eta=0.2 )
+        hebb_decay.learn( train_features[ireal], train_labels[ireal], eta=0.2 )
+        ojas.learn( train_features[ireal], train_labels[ireal], eta=0.2 )
+```
+
+```python
+# Print their final weights
+print( f"Hebb: { hebb.weights }" )
+print( f"Hebb_decay: { hebb_decay.weights }" )
+print( f"Ojas: { ojas.weights }" )
+```
+
+```python
+# Categorize after Training
+# Expectation: All perform the same (as they have been initialized with the same weights)
+print( "Hebb" )
+quicktest( hebb, test_features, test_labels )
+print( "Hebb Decay" )
+quicktest( hebb_decay, test_features, test_labels )
+print( "Ojas" )
+quicktest( ojas, test_features, test_labels )
+```
+
+As you can see, the classification accuracy is not that great. Multiple reasons:
+- limited classification power of one single neuron + local learning rule
+- data is difficult for this learning rule to learn
+- not much data to learn from
+
+BUT, it works!
+Now that we have made that sure, we can go on to building the architecture of both classifiers!
