@@ -16,12 +16,9 @@ jupyter:
 ## Todos
 
 - x/X y/Y consistency
-- Activation function section
-- Learning Rule section
-- Function documentation
-- Network Class?
 - Multilayer
 - I know the dude was called Oja I will fix it in the end.
+- Decaying Learning Rate
 
 
 AS.200.313, Models of Mind and Brain, Prof. Honey
@@ -40,13 +37,13 @@ The networks are built to classify 28x28 pixel images of handwritten digits corr
 
 The project consists of 3 stages:
 
-#### Stage 1
+#### Stage 1: Definition
 First, the network, learning rules and activation functions are explained and defined. Additionally the data is loaded in and taken a look at.
 
-#### Stage 2
+#### Stage 2: Architecture
 Second, the best architecture is explored by examining different combinations of hyperparameters such as amount of layers, hidden layer size and activation function. 
 
-#### Stage 3
+#### Stage 3: Comparison
 Lastly, the three models are compared on following three questions:
 - Classification accuracy
 - Learning speed
@@ -54,7 +51,7 @@ Lastly, the three models are compared on following three questions:
 
 
 
-# Stage 1
+# Stage 1: Definition
 
 In this stage the Neuron, Network, learning Rules and activation Functions are defined and the Data is loaded in.
 
@@ -97,6 +94,43 @@ import numpy as np
 import pandas as pd
 import random
 
+
+# Functions used in classes
+
+def normalizeRows( x ):
+    """
+    Normalizes Rows
+    """
+    return x / np.linalg.norm( x, axis=1 )[ :, None ]
+
+
+def runTest( X, y, network ):
+    """
+    Computes for given X and y data the amount of correct predictions by the given network.
+    Requires the predictions being higher then 0.
+    If there is multiple predictions with the same value, the lowest digit of those is taken.
+    """
+    assert isinstance( network, Layer ) or isinstance( network, Network ), "Not given a 'Layer' or 'Network' object in network argument!"
+    assert X.shape[0] == y.shape[0], "X shape does not match y shape!"
+
+    # Convert Labels into digits
+    y = asDigits( y )
+
+    # Compute predictions
+    preds = np.empty( y.shape )
+    for i in range( X.shape[0] ):
+        predvec = network.compute( X[i] )
+        # Require predictions to be over 0
+        predcan = np.where( ( predvec == np.amax( predvec ) ) & ( predvec > 0 ) )[0] # Candidates
+        preds[i] = None if predcan.shape[0] == 0 else predcan[0]   # Take first candidate
+
+    # Compare
+    comp = preds == y
+    correct = sum( comp.astype( np.int ) )
+    indexWrong = np.where( comp == False )
+    return correct, indexWrong
+
+
 # Classes
 
 class Layer():
@@ -111,25 +145,30 @@ class Layer():
                     nNeurons,
                     activationFunction=( lambda x: x ),
                     learning=( lambda w, x, y, eta: w + eta * np.outer( y, x.T ) ),
-                    random=False ):
+                    random=False,
+                    normalize=False ):
         """
         nInputs: amount of input neurons to layer
         nNeurons: amount of neurons in layer (==outputs)
-        activationFunction: Potentially nonlinear function for the activation of the neuron: standard: 0 Threshhold
-        learning: Learning Rule for Layers, standard: is simple Hebbian
+        activationFunction: potentially nonlinear function for the activation of the neuron: standard: 0 Threshhold
+        learning: learning Rule for Layers, standard: is simple Hebbian
         random: initialize weights randomly - will normalize weights to 1, standard: False
+        normalize: should weights be normalized after every learning step, standard: False
         """
         self.layerShape = ( nNeurons, nInputs )
         self.aF = activationFunction
         self.learning = learning
+        self.normalize = normalize
 
         if random:
             self.weights = normalizeRows( np.random.uniform( low=-1, high=1, size=self.layerShape ) )
         else:
             self.weights = np.zeros( self.layerShape )
-    
+
+
     def getWeights( self ):
         return self.weights
+
 
     def learn( self, x, y, eta=0.25 ):
         """
@@ -138,6 +177,9 @@ class Layer():
         eta: learning rate
         """
         self.weights = self.learning( self.weights, x, y, eta )
+        if self.normalize:
+            self.weights = normalizeRows( self.weights )
+
 
     def compulearn( self, x, y=None, eta=0.25 ):
         """
@@ -156,6 +198,7 @@ class Layer():
             self.learn( x, y, eta )
 
         return res
+
 
     def compute( self, x ):
         """
@@ -184,6 +227,7 @@ class Layer():
 
         # @todo: plot
 
+
 class Network:
     """
     Wrapperclass to hold multiple layers.
@@ -197,11 +241,13 @@ class Network:
         self.compute = compute
         self.learn = learn
 
+
     def setCompute( self, compute ):
         """
         Sets the compute function
         """
         self.compute = compute
+
 
     def compute( self, x ):
         """
@@ -210,11 +256,13 @@ class Network:
         assert self.compute is not None, "compute not set!"
         return self.compute( x )
 
+
     def setLearn( self, learn ):
         """
         Sets the learn function
         """
         self.learn = learn
+
 
     def learn( self, x, y, eta=0.25 ):
         """
@@ -224,6 +272,7 @@ class Network:
         """
         assert self.learn is not None, "learn not set!"
         self.learn( x, y, eta )
+
 
     def train( self, X, y, epochs, eta, seed=None, plot=False ):
         """
@@ -246,13 +295,18 @@ class Network:
         # @todo: plot
 
 
-# Functions
 
-def normalizeRows( x ):
+# Other Functions
+
+def runPrintTest( X, y, network, name="" ):
     """
-    Normalizes Rows
+    runs a test given X and y with network and prints the result,
+    returns amount of correct classified elements and indices of wrong ones
     """
-    return x / np.linalg.norm( x, axis=1 )[ :, None ]
+    correct, indicesWrong = runTest( X, y, network )
+    print( f"{name} {correct}/{y.shape[0]} correct: { correct/y.shape[0] * 100 } %" )
+    return correct, indicesWrong
+
 
 def readImages( path ):
     """
@@ -287,6 +341,7 @@ def readLabels( path ):
         labels = np.frombuffer( buf, dtype=np.uint8 ).astype( np.int64 )
         return labels
 
+
 def plotData( images, labels, n ):
     """
     Prints n random images with their labels from given images
@@ -302,24 +357,6 @@ def plotData( images, labels, n ):
         plt.text( x=10, y=-10, s=labels[x], fontsize=21 )
         plt.imshow( images[x], cmap=plt.cm.Greys )
 
-def quicktest( s, test_features, test_labels, verbose=False ):
-    correct = 0
-    for i in range( len( test_features ) ):
-        res = "Apple" if s.compute( test_features[i] ) else "Orange"
-        if test_labels[i]:
-            if verbose:
-                print( f"Example { i + 1 }, Apple, Classification: { res }" )
-            correct += "Apple" == res
-        else:
-            if verbose:
-                print( f"Example { i + 1 }, Orange, Classification: { res }" )
-            correct += "Orange" == res
-    print( f"{ correct }/{ len( test_features ) } correct!" )
-
-def scaleTo( xs ):
-    xs = np.array( xs )
-    xs = xs - np.mean( xs, axis = 0 )
-    return ( xs / ( max( abs( np.min( xs, axis = 0 ) ), np.max( xs, axis = 0 ) ) ) )
 
 def printStats( xs, topFive=False ):
     """
@@ -331,73 +368,12 @@ def printStats( xs, topFive=False ):
     print( f"Max : { np.amax( xs, axis = 0 ) }" )
     print( f"Min : { np.amin( xs, axis = 0 ) }" )
 
+
 def asDigits( labels ):
     """
     Turns One-Hot-Vector encodings to digits, returns a numpy array
     """
     return np.argmax( labels, axis=1 )
-
-def runTest( X, y, network ):
-    """
-    Computes for given X and y data the amount of correct predictions by the given network.
-    Requires the predictions being higher then 0.
-    If there is multiple predictions with the same value, the lowest digit of those is taken.
-    """
-    assert isinstance( network, Layer ) or isinstance( network, Network ), "Not given a 'Layer' or 'Network' object in network argument!"
-    assert X.shape[0] == y.shape[0], "X shape does not match y shape!"
-
-    # Convert Labels into digits
-    y = asDigits( y )
-
-    # Compute predictions
-    preds = np.empty( y.shape )
-    for i in range( X.shape[0] ):
-        predvec = network.compute( X[i] )
-        # Require predictions to be over 0
-        predcan = np.where( ( predvec == np.amax( predvec ) ) & ( predvec > 0 ) )[0] # Candidates
-        preds[i] = None if predcan.shape[0] == 0 else predcan[0]   # Take first candidate
-    
-    # Compare
-    comp = preds == y
-    correct = sum( comp.astype( np.int ) )
-    indexWrong = np.where( comp == False )
-    return correct, indexWrong
-```
-
-```python
-print( np.linalg.norm( np.arange( 0, 10, 1 ).reshape( 5, 2 ), axis=1 ) )
-n = normalizeRows( np.arange( 0, 10, 1 ).reshape( 5, 2 ) )
-print( n )
-print( np.linalg.norm( n, axis=1 ) )
-```
-
-```python tags=["outputPrepend"]
-import math
-t = Layer( 900, 1, learning=r_ojas )
-t.getWeights()
-t.weights[0][1] = 0.5
-t.weights[0][2] = 0.5 ** 0.5
-t.weights[0][3] = 0.5
-print( t.weights )
-i = np.random.uniform( 0, 1, 900 )
-print( i )
-print( t.compute( i ) )
-t.learn( i, t.compute( i ), eta=0.1 )
-print( t.weights )
-```
-
-```python
-# print( t.weights )
-# i = np.array( [0.8, 1, 0.3,0.5] )
-# print( i )
-print( t.compute( i ) )
-t.learn( i, t.compute( i ), eta=0.1 )
-print( t.weights )
-
-```
-
-```python
-t.compute( i )
 ```
 
 ## Learning rules
@@ -431,20 +407,20 @@ Another way to stop the weight explosion is by normalizing the weights of each n
 
 ### Rules in Python
 
-Finally, let's implement the rules in Python! For this project the learning rules are implemented as lambda functions. It is important that they work for multiple Neurons stacked on top of each other.
+Finally, the implementation of the rules in Python! For this project the learning rules are implemented as lambda functions. It is important that they work for multiple Neurons stacked on top of each other.
 
 
 ```python
 # Learning rules in Python
 r_hebb = lambda W, x, y, eta: W + eta * np.outer( y, x.T )
-r_hebb_decay = lambda W, x, y, eta: W + eta * ( ( x - W ) * y[ :, None ] )
+r_decay = lambda W, x, y, eta: W + eta * ( ( x - W ) * y[ :, None ] )
 r_ojas = lambda W, x, y, eta: W + eta * ( ( x - W * y[ :, None ] ) * y[ :, None ] )
-# @todo: does nonlinearity need to be taken into account?
+# @todo: @question: does nonlinearity need to be taken into account for the learning rule?
 ```
 
 ## Activation functions
 
-The learning rules from above all assume a linear Neuron. But some nonlinear functions lead to interesting properties and potentially could improve the classification accuracy! 
+The learning rules from above all assume a linear Neuron. But some nonlinear functions lead to interesting properties and potentially could improve the classification accuracy!
 
 @todo: include citation of nonlinear Hebb networks with interesting properties (and check on them(?))
 
@@ -486,12 +462,18 @@ The 'sigmoid' function squashes all outputs between 0 and 1 in a nonlinear way:
     f(x) = \max{( 0, x )}
 \end{equation}
 
+### Activation functions in Python
+
+Also for the activation functions lambda functions are used. Importantly, the functions need to be able to handle vectors!
+
 ```python
-# Define the Activation functions, need to work with vector inputs
+# Definition of activation functions
 linear = lambda x: x
 threshhold = lambda x: ( x > 0.5 ).astype( np.int )
 sigmoid = lambda x: ( 1 / ( 1 + np.exp( -x ) ) )
 relu = lambda x: np.maximum( 0, x )
+# Create an array of activation functions for later convenience
+activationFunctions = [ linear, threshhold, sigmoid, relu ]
 ```
 
 Visualizing the activation functions:
@@ -535,14 +517,20 @@ And the test data:
 plotData( np.reshape( X_test, ( X_test.shape[0] , 28, 28 ) ), y_test, 20 )
 ```
 
-## The Architecture
+# Stage 2: Architecture
 
-In this section we systematically explore which combination of architecture, activation function and learning rate works the best
+In this section different architectures are systematically explored by altering parameters such as amount of layers, layer size and activation function.
+
+(thought: maybe merge Stage 2 and 3 and discuss the results directly under each trial...)
+
+@question: analyze errors more thoroughly with precision and recall and look which numbers cause the errors?
 
 
 ### Single Layer Networks
 
 First, I try learning single Layer Networks, they are easy and straightforward to teach.
+
+Note that Oja's network needs to be initialized with random values because it will not learn if not. @todo: is this true for single layer networks? If yes, initialize decay and hebb network with same weights as ojas
 
 ```python
 N_INPUT = 28 * 28
@@ -551,36 +539,32 @@ N_OUTPUT = 10
 np.random.seed( 1 )
 
 oneLNhebb = Layer( N_INPUT, N_OUTPUT )
-oneLNojas = Layer( N_INPUT, N_OUTPUT, learning=r_ojas, random=True )
+oneLNdeca = Layer( N_INPUT, N_OUTPUT, learning=r_decay )
+oneLNojas = Layer( N_INPUT, N_OUTPUT, learning=r_ojas, random=True, normalize=True )
 ```
 
 ```python
-oneLNojas.learn( X_train[1], y_train[1], eta=0.1 )
-oneLNojas.getWeights()
-```
-
-```python
-# Before Training
-correct, iWrong = runTest( X_test, y_test, oneLNhebb )
-print( f"{correct}/{y_test.shape[0]} correct: { correct/y_test.shape[0] * 100 } %" )
-correct, iWrong = runTest( X_test, y_test, oneLNojas )
-print( f"Ojas: {correct}/{y_test.shape[0]} correct: { correct/y_test.shape[0] * 100 } %" )
+print( "Before Training" )
+runPrintTest( X_test, y_test, oneLNhebb, "Hebb: " )
+runPrintTest( X_test, y_test, oneLNdeca, "Decay:" )
+runPrintTest( X_test, y_test, oneLNojas, "Oja's:" );
 ```
 
 ```python
 # Training
 print( "Hebb" )
 oneLNhebb.train( X_train, y_train, epochs=5, eta=0.1, seed=None )
-print( "Ojas" )
+print( "\nDecay" )
+oneLNdeca.train( X_train, y_train, epochs=5, eta=0.1, seed=None )
+print( "\nOjas" )
 oneLNojas.train( X_train, y_train, epochs=5, eta=0.1, seed=None )
 ```
 
 ```python
-# After Training
-correct, iWrong = runTest( X_test, y_test, oneLNhebb )
-print( f"{correct}/{y_test.shape[0]} correct: { correct/y_test.shape[0] * 100 } %" )
-correct, iWrong = runTest( X_test, y_test, oneLNojas )
-print( f"Ojas: {correct}/{y_test.shape[0]} correct: { correct/y_test.shape[0] * 100 } %" )
+print( "After Training" )
+runPrintTest( X_test, y_test, oneLNhebb, "Hebb: " )
+runPrintTest( X_test, y_test, oneLNdeca, "Decay:" )
+runPrintTest( X_test, y_test, oneLNojas, "Oja's:" );
 ```
 
 We can see some not-so-bad results here already. As expected the order of training samples does not matter to the Hebbian Network, but to the Ojas Network!
@@ -590,6 +574,11 @@ Now we can have a look at how the activation functions change our networks predi
 ```python
 N_INPUT = 28 * 28
 N_OUTPUT = 10
+
+# Create a dictionary with all the networks
+oneLN = { 'hebb': [], 'decay': [], 'ojas': [] }
+for aF in activationFunctions:
+    pass
 
 oneLNhebb = Layer( N_INPUT, N_OUTPUT, activationFunction=relu )
 oneLNojas = Layer( N_INPUT, N_OUTPUT, learning=r_ojas, activationFunction=relu )
@@ -618,13 +607,10 @@ correct, iWrong = runTest( X_test, y_test, oneLNojas )
 print( f"Ojas: {correct}/{y_test.shape[0]} correct: { correct/y_test.shape[0] * 100 } %" )
 ```
 
-```python
-oneLNojas.compute( X_test[0] )
-```
-
 ### Multi Layer Networks
 
 Training becomes non-trivial.
+
 Which outputs should intermediate neurons learn?
 
 3 Approaches:
@@ -666,12 +652,40 @@ twoLayer.train( X_train, y_train, epochs=1, eta=0.1 )
 print( runTest( X_test, y_test, twoLayer )[0] / X_test.shape[0] * 100 )
 ```
 
-## Comparison
+# Stage 3: Comparison
 
-- Which model performs better?
-- Which model learns faster?
-- Interesting other effects?
+Now that everything is defined and the architectures are explored, let's discuss the results regarding following three points:
 
+1. Which model has a higher classification accuracy?
+2. Which model learns faster?
+3. Interesting other effects
+
+
+
+## Single Layer Networks
+
+### Accuracy
+
+In this section the clear winner is the plain simple Hebbian learning rule paired with a linear activation function.
+
+@todo: include code cell showing results (or a table or something like that)
+
+### Learning speed
+
+Also here, the plain Hebbian learning rule is clearly the fastest. As it is independent from the ordering in training it does not matter how often it is trained, it's best classification accuracy is reached after one Epoch already
+
+@todo: include code cell creating a plot of accuracy dependent on Epochs
+
+### Interesting other effects
+
+T
+
+@todo: include code cell showing the principal component for each of the numbers - "which pixel is most important for a a digit"
+
+
+
+
+## Multi-Layer Networks
 
 
 # References
@@ -683,7 +697,7 @@ LeCun, Y., & Cortes, C., & Burges, C.J.C., The MNIST Database of Handwritten Dig
 
 # Old Code Parking Lot
 
-Do not regard this section, I am just parking old code in case I need it again - it will not be present in the final project.
+Do not regard anything after this section, I am just parking old code in case I need it again - it will not be present in the final project.
 
 ```python
 # Legacy, just in case I need it again
@@ -741,6 +755,27 @@ I use this data, extract only the oranges and apples and then do binary classifi
 The data is split into train and test. Additionally it is scaled to be between -1 and 1.
 
 ```python
+# Functions
+
+def quicktest( s, test_features, test_labels, verbose=False ):
+    correct = 0
+    for i in range( len( test_features ) ):
+        res = "Apple" if s.compute( test_features[i] ) else "Orange"
+        if test_labels[i]:
+            if verbose:
+                print( f"Example { i + 1 }, Apple, Classification: { res }" )
+            correct += "Apple" == res
+        else:
+            if verbose:
+                print( f"Example { i + 1 }, Orange, Classification: { res }" )
+            correct += "Orange" == res
+    print( f"{ correct }/{ len( test_features ) } correct!" )
+
+def scaleTo( xs ):
+    xs = np.array( xs )
+    xs = xs - np.mean( xs, axis = 0 )
+    return ( xs / ( max( abs( np.min( xs, axis = 0 ) ), np.max( xs, axis = 0 ) ) ) )
+
 # Read the fruit data in
 data = pd.read_table( "data/fruit_data_with_colors.txt" )
 
