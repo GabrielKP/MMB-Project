@@ -15,19 +15,23 @@ jupyter:
 
 ## Todos
 
+@todo:
 - x/X y/Y consistency
 - Speed optimization for train/compute/learn
 - Fix Oja's name to Oja.
 - Decaying Learning Rate
+- Hebb Decay Rule should be included in title
+
+This draft is littered with @todos. It would be helpful to me if you let me know whether you think they are unnecessary or whether I have some I have overlooked.
 
 
 AS.200.313, Models of Mind and Brain, Prof. Honey
 
 Project draft, Gabriel Kressin
 
-# How does a neural-network-classifier learning with Hebbs rule compare to a neural-network-classifier learning with Oja's rule regarding accuracy, learning speed and other features?
+# How does a neural-network learning with Hebbs rule compare to a neural-network learning with Oja's rule regarding accuracy, learning speed and other features in a digit classification task?
 
-This project builds and compares three networks for the MNIST 10-digit classification (LeCun, Y., & Cortes, C., & Burges, C.J.C.) only differing in their learning rule:
+This project builds and compares three networks featuring biologically plausible learning rules to classify digits from the MNIST 10-digit dataset (LeCun, Y., & Cortes, C., & Burges, C.J.C.). These networks only differ in their learning rule:
     
     1. Plain Hebbian rule. 
     2. Hebbian-Decay rule.
@@ -44,7 +48,7 @@ First, the network, learning rules and activation functions are explained and de
 Second, the best architecture is explored by examining different combinations of hyperparameters such as amount of layers, hidden layer size and activation function. 
 
 #### Stage 3: Comparison
-Lastly, the three models are compared on following three questions:
+Lastly, the three models are compared on following three criterias:
 - Classification accuracy
 - Learning speed
 - Emerging other factors
@@ -404,7 +408,7 @@ The weights $\mathbf{W}$ are updated according to the given input, if the neuron
 
 ### Hebb with decay rule
 
-Hebbs plain Rule has a big drawback: the weights explode indefinitly to infinity. To stop that from happening a decay term is introduced. This leads to following equation:
+Hebbs plain Rule has a big drawback: the weights explode indefinitly to infinity. To stop that from happening a decay term is introduced (Amato et al. 2019, p.3). This leads to following equation:
 
 \begin{equation}         
 \mathbf{\hat{W}} = \mathbf{W} + \eta \mathbf{y}( \mathbf{x} - \mathbf{W} )
@@ -433,11 +437,11 @@ r_ojas = lambda W, x, y, eta: W + eta * ( ( x - W * y[ :, None ] ) * y[ :, None 
 
 ## Activation functions
 
-The learning rules from above all assume a linear Neuron. But some nonlinear functions lead to interesting properties and potentially could improve the classification accuracy!
+For correctness of the above mentioned learning rules a linear Neuron is assumed. But by abiding to certain rules, we can introduce nonlinear functions which may lead to interesting properties and potentially could improve the classification accuracy! (@todo: include citation of nonlinear Hebb networks with interesting properties (and check on them(?))
 
-@todo: include citation of nonlinear Hebb networks with interesting properties (and check on them(?))
+On another note, nonlinear activation functions are present in our human brain and thus a good argument to make our learning rules more biologically plausible (@todo: another citation needed).
 
-Below this section you can find a visualization of the activation functions.
+Below this section a visualization of the activation functions can be found.
 
 ### Linear
 
@@ -449,7 +453,7 @@ This one is simple:
 
 ### Simple threshhold
 
-The 'simple threshhold' simply classifies things into 0 or 1. Firing or not firing.
+The 'simple threshhold' simply classifies things into 0 or 1. Firing or not firing. (be warned: it does not seem to work at the moment)
 
 \begin{equation}
     f(x) =
@@ -487,7 +491,7 @@ sigmoid = lambda x: ( 1 / ( 1 + np.exp( -x ) ) )
 relu = lambda x: np.maximum( 0, x )
 # Create an array of activation functions for later convenience
 activationFunctions = [ linear, threshhold, sigmoid, relu ]
-activationFunctionNames = [ "linear", "threshhold", "sigmoid", "relu" ]
+activationFunctionNames = [ "Linear", "Threshhold", "Sigmoid", "ReLU" ]
 ```
 
 Visualizing the activation functions:
@@ -498,7 +502,7 @@ plt.plot( test, linear( test ) )
 plt.plot( test, threshhold( test ) )
 plt.plot( test, sigmoid( test ) )
 plt.plot( test, relu( test ) )
-plt.legend( ["Linear", "Threshhold", "Sigmoid", "ReLU"] );
+plt.legend( activationFunctionNames );
 ```
 
 ## The Data
@@ -552,6 +556,226 @@ Note that Oja's network needs to be initialized with at least one weight which i
 ```python
 N_INPUT = 28 * 28
 N_OUTPUT = 10
+nTest = y_test.shape[0]
+epochs = 5  # How often the Training Set is iterated over, Set lower to save significant amount of time
+trials = 3  # Amount of different testRuns, set lower for maximum time saving
+
+# Function to create empty arrays - to save space below
+eA = lambda: [ [] for _ in range( len( activationFunctions ) ) ]
+
+# Create a dictionary with all the networks and activationFunctions
+oneLNacc = { 'hebb': eA(), 'deca': eA(), 'ojas': eA() }
+oneLNaccPre = { 'hebb': eA(), 'deca': eA(), 'ojas': eA() } # Accuracy before training
+oneLNind = { 'hebb': eA(), 'deca': eA(), 'ojas': eA() }
+oneLNindPre = { 'hebb': eA(), 'deca': eA(), 'ojas': eA() } # Wrong indices before training
+
+
+for trial in range( trials ):
+    print( f"Trial Number {trial + 1}" )
+    for i, aF in enumerate( activationFunctions ):
+        print( activationFunctionNames[i] )
+        # Initialize Networks
+        hebb = Layer( N_INPUT, N_OUTPUT, learning=r_hebb, activationFunction=aF )
+        deca = Layer( N_INPUT, N_OUTPUT, learning=r_decay, activationFunction=aF )
+        ojas = Layer( N_INPUT, N_OUTPUT, learning=r_ojas, activationFunction=aF)
+        # Run test before
+        hebb_pre_acc, hebb_pre_iWrong = runTest( X_test, y_test, hebb )
+        deca_pre_acc, deca_pre_iWrong = runTest( X_test, y_test, deca )
+        ojas_pre_acc, ojas_pre_iWrong = runTest( X_test, y_test, ojas )
+        # Train
+        print( "Hebb" )
+        np.random.seed( trial )
+        hebb.train( X_train, y_train, epochs=epochs, eta=0.1, seed=None )
+        print( "Decay" )
+        np.random.seed( trial )
+        deca.train( X_train, y_train, epochs=epochs, eta=0.1, seed=None )
+        print( "Oja")
+        np.random.seed( trial )
+        ojas.train( X_train, y_train, epochs=epochs, eta=0.1, seed=None )
+        # Run test after
+        hebb_post_acc, hebb_post_iWrong = runTest( X_test, y_test, hebb )
+        deca_post_acc, deca_post_iWrong = runTest( X_test, y_test, deca )
+        ojas_post_acc, ojas_post_iWrong = runTest( X_test, y_test, ojas )
+        # Save data in the dictionaries
+        oneLNacc['hebb'][i].append( hebb_post_acc / nTest )
+        oneLNind['hebb'][i].append( hebb_post_iWrong )
+        oneLNaccPre['hebb'][i].append( hebb_pre_acc / nTest )
+        oneLNindPre['hebb'][i].append( hebb_pre_iWrong )
+        oneLNacc['deca'][i].append( deca_post_acc / nTest )
+        oneLNind['deca'][i].append( deca_post_iWrong )
+        oneLNaccPre['deca'][i].append( deca_pre_acc / nTest )
+        oneLNindPre['deca'][i].append( deca_pre_iWrong )
+        oneLNacc['ojas'][i].append( ojas_post_acc / nTest )
+        oneLNind['ojas'][i].append( ojas_post_iWrong )
+        oneLNaccPre['ojas'][i].append( ojas_pre_acc / nTest )
+        oneLNindPre['ojas'][i].append( ojas_pre_iWrong )
+
+
+print( "Done" )
+```
+
+Now the trials are averaged and visualized
+
+```python
+# Average the Results
+# @todo: fix the thing with the threshhold function or delete it
+# @todo: own function for averaging and plotting
+# @todo: plot learning over epochs
+for network in oneLNacc.keys():
+    resList = oneLNacc[network]
+    for i in range( len( resList ) ):
+        resList[i] = np.average( resList[i] )
+```
+
+```python
+x = np.arange( 0, len( activationFunctions ) * 2, 2 )
+bWidth = 0.6
+
+# Matplotlib preparation
+plt.figure( figsize=( 10, 7 ) )
+plt.title( "One Layer Networks Accuracy" )
+plt.ylim( [0, 1] )
+
+# plot the bars
+plt.bar( x, [ acc for acc in oneLNacc['hebb'] ], width=bWidth )
+plt.bar( x + bWidth, [ acc for acc in oneLNacc['deca'] ], width=bWidth )
+plt.bar( x + bWidth * 2, [ acc for acc in oneLNacc['ojas'] ], width=bWidth )
+
+# Set x axis
+plt.xticks( x + bWidth, activationFunctionNames )
+
+# Set legend
+plt.legend( ["Hebbian", "Decay", "Oja"] );
+```
+
+The Results show that in terms of the activation function the linear activation Function seems to work best. For the networks, the plain Hebbian rule outperforms both other rules, with the Oja and Decay rule competing for the second place depending on the amount of epochs and trial runs.
+
+Note that 0.98% of the images in the testset are digits with label '1'. Due to that and the way the evaluation works, a classification accuracy of 0.098 means the network learnt nothing, or in other words is dysfunctional. This can be currently seen with the treshhold activation function. I will fix that for the final version.
+
+
+### Multi Layer Networks
+
+Now, a 2 layer network is created.
+
+Even though it seems simple, training now becomes non-trivial as it is unclear which output intermediat neurons should try to learn. There seem to be two approaches:
+
+1. Initialize weights randomly, let the network learn just what it is producing and hope it creates enough diversity in outputs for a good categorization.
+2. Force the intermediate Neurons to learn specific patterns, which arguably is not as biologically plausible anymore. A version of this was done in Amato et al. (2019), which can be seen in the chapter "3.3 Supervised Hebbian Learning".
+
+At the moment I am not getting the first approach to work properly with an ojas based network. Probably I will include both approaches in the end.
+BIG@todo: get multilayer working!
+
+```python
+N_INPUT = 28 * 28
+N_L1 = 1000
+N_OUTPUT = 10
+
+h_l1 = Layer( N_INPUT, N_L1, random=True, normalize=True, learning=r_ojas )
+h_out = Layer( N_L1, N_OUTPUT, learning=r_ojas, normalize=True, random=True )
+
+twoLayer = Network()
+twoLayer.setCompute( lambda x: h_out.compute( h_l1.compute( x ) ) )
+twoLayer.setLearn( lambda x, y, eta: h_out.learn( ( h_l1.compulearn( x, eta=eta ) ), y, eta=eta ) )
+```
+
+```python
+runPrintTest( X_test, y_test, twoLayer,"Two Layer Ojas:" );
+```
+
+```python tags=[]
+twoLayer.train( X_train[:20000], y_train[:20000], epochs=5, eta=0.1 )
+```
+
+```python
+print( runTest( X_test, y_test, twoLayer )[0] / X_test.shape[0] * 100 )
+```
+
+# Stage 3: Comparison
+
+Now that everything is defined and the architectures are explored, let's discuss the results regarding following three points:
+
+1. Which model has a higher classification accuracy?
+2. Which model learns faster?
+3. Interesting other effects
+
+
+
+## Single Layer Networks
+
+### Accuracy
+
+In this section the clear winner is the plain simple Hebbian learning rule paired with linear or relu as activation function. Still, the plain Hebbian learning rule is quite impractical in real world usage, due to the weight explosion.
+
+Not taking the plain Hebbian learning rule into account, the Oja learning rule performs on average better then the Hebbian Decay rule.
+
+@todo: include code cell from above showing results (or a table or something like that)
+
+
+### Learning speed
+
+Also here, the plain Hebbian learning rule is clearly the fastest. As it is independent from the ordering in training it does not matter how often it is trained, it's best classification accuracy is reached after one Epoch already
+
+@todo: include code cell creating a plot of accuracy dependent on Epochs
+
+
+### Emerging other effects
+
+In this category, the Oja Rule clearly wins. Due to the way it works, the weights of the Neurons resemble the first principle component of the data for the digit they are tuned to (@todo: include citation). This could be very helpful for image further analysis, for instance finding, which pixels are the most important ones.
+
+@todo: include code cell showing the principal component for each of the numbers - "which pixel is most important for a a digit"
+
+
+## Multi-Layer Networks
+
+( this will look like the section above, likely with more text and some graphs )
+
+### Accuracy
+
+
+### Learning Speed
+
+
+### Emerging other effects
+
+<!-- #region -->
+## Conclusion: How does a neural-network-classifier learning with Hebbs rule compare to a neural-network-classifier learning with Oja's rule?
+
+Whereas the network with the plain Hebbian learning rule has quite an impressive learning rate and accuracy, it is impractical due to it's weight explosion.
+
+The interesting part is the comparison of Oja's rule and Hebb's Decay Rule. In terms of accuracy, both rules provide for a image classification around 60%, with neither being completely dominant over the other. Furthermore, both rules highly depend on the order of the presented training data, making their learning rate quite unpredictable und not very stable over time. The key difference is, that Oja's network also gives you acces to the first principal component of the input data, making it very valuable for input data analysis.
+( I can only really write more with the other results in )
+
+
+@todo: relate to state of the art
+<!-- #endregion -->
+
+## Future Work
+
+There is many interesting things to have a longer look at:
+
+- How would a spiking neural network with the same learning rules do, compared to the models shown here.
+- Is there a better and actually effective way to train the intermediate layers?
+- How would a convoutional architecture perform?
+- How would recurrance affect the prediction accuracy?
+
+
+# References
+
+LeCun, Y., Cortes, C., & Burges, C.J.C., The MNIST Database of Handwritten Digits \[Accessed 26.11.2020 18:00 CET\]. http://yann.lecun.com/exdb/mnist/
+
+Amato, G., Carrara, F., Falchi, F., Gennaro, C., & Lagani, G.(2019). Hebbian Learning Meets Deep Convolutional Neural Networks. In: Ricci E., Rota Bulò S., Snoek C., Lanz O., Messelodi S., Sebe N. (eds) Image Analysis and Processing – ICIAP 2019. ICIAP 2019. Lecture Notes in Computer Science, vol 11751. Springer, Cham. https://doi.org/10.1007/978-3-030-30642-7_29
+
+@todo, weight decay citation of the big book
+
+
+
+# Old Code Parking Lot
+
+Do not regard anything after this section, I am just parking old code in case I need it again - it will not be present in the final project.
+
+```python
+N_INPUT = 28 * 28
+N_OUTPUT = 10
 
 np.random.seed( 1 )
 
@@ -585,197 +809,9 @@ runPrintTest( X_test, y_test, oneLNdeca, "Decay:" )
 runPrintTest( X_test, y_test, oneLNojas, "Oja's:" );
 ```
 
-We can see some not-so-bad results here already. As expected the order of training samples does not matter to the Hebbian Network, but to the Ojas Network!
+These resulst are not as bad already. As expected the order of training samples does not matter to the Hebbian Network, but to the Decay and Oja Network!
 
 Now we can have a look at how the activation functions change our networks prediction.
-
-```python
-N_INPUT = 28 * 28
-N_OUTPUT = 10
-nTest = y_test.shape[0]
-epochs = 1  # How often the Training Set is iterated over, Set lower to save significant amount of time
-trials = 3  # Amount of different testRuns, set lower for maximum time saving
-
-# Function to create empty arrays - to save space below
-eA = lambda: [ [] for _ in range( len( activationFunctions ) ) ]
-
-# Create a dictionary with all the networks and activationFunctions
-oneLNacc = { 'hebb': eA(), 'deca': eA(), 'ojas': eA() }
-oneLNaccPre = { 'hebb': eA(), 'deca': eA(), 'ojas': eA() } # Accuracy before training
-oneLNind = { 'hebb': eA(), 'deca': eA(), 'ojas': eA() }
-oneLNindPre = { 'hebb': eA(), 'deca': eA(), 'ojas': eA() } # Wrong indices before training
-
-
-for trial in range( trials ):
-    print( f"Trial Number {trial + 1}" )
-    for i, aF in enumerate( activationFunctions ):
-        print( activationFunctionNames[i] )
-        # Initialize Networks
-        hebb = Layer( N_INPUT, N_OUTPUT, learning=r_hebb, activationFunction=aF )
-        deca = Layer( N_INPUT, N_OUTPUT, learning=r_decay, activationFunction=aF )
-        ojas = Layer( N_INPUT, N_OUTPUT, learning=r_ojas, activationFunction=aF)
-        # Run test before
-        hebb_pre_acc, hebb_pre_iWrong = runTest( X_test, y_test, hebb )
-        deca_pre_acc, deca_pre_iWrong = runTest( X_test, y_test, deca )
-        ojas_pre_acc, ojas_pre_iWrong = runTest( X_test, y_test, ojas )
-        # Train
-        np.random.seed( trial )
-        hebb.train( X_train, y_train, epochs=epochs, eta=0.1, seed=None )
-        np.random.seed( trial )
-        deca.train( X_train, y_train, epochs=epochs, eta=0.1, seed=None )
-        np.random.seed( trial )
-        ojas.train( X_train, y_train, epochs=epochs, eta=0.1, seed=None )
-        # Run test after
-        hebb_post_acc, hebb_post_iWrong = runTest( X_test, y_test, hebb )
-        deca_post_acc, deca_post_iWrong = runTest( X_test, y_test, deca )
-        ojas_post_acc, ojas_post_iWrong = runTest( X_test, y_test, ojas )
-        # Save data in the dictionaries
-        oneLNacc['hebb'][i].append( hebb_post_acc / nTest )
-        oneLNind['hebb'][i].append( hebb_post_iWrong )
-        oneLNaccPre['hebb'][i].append( hebb_pre_acc / nTest )
-        oneLNindPre['hebb'][i].append( hebb_pre_iWrong )
-        oneLNacc['deca'][i].append( deca_post_acc / nTest )
-        oneLNind['deca'][i].append( deca_post_iWrong )
-        oneLNaccPre['deca'][i].append( deca_pre_acc / nTest )
-        oneLNindPre['deca'][i].append( deca_pre_iWrong )
-        oneLNacc['ojas'][i].append( ojas_post_acc / nTest )
-        oneLNind['ojas'][i].append( ojas_post_iWrong )
-        oneLNaccPre['ojas'][i].append( ojas_pre_acc / nTest )
-        oneLNindPre['ojas'][i].append( ojas_pre_iWrong )
-
-
-print( "Done" )
-```
-
-@todo: fix the thing with the threshhold function or delete it
-@todo: visualization of results
-
-```python
-oneLNacc
-```
-
-### Multi Layer Networks
-
-Now, a 2 layer network is created.
-
-Even though it seems simple, training now becomes non-trivial as it is unclear which output intermediat neurons should try to learn. There seem to be two approaches:
-
-1. Initialize weights randomly, let the network learn just what it is producing and hope it creates enough diversity in outputs for a good categorization.
-2. Force the intermediate Neurons to learn specific patterns, which arguably is not as biologically plausible anymore. A version of this was done in Amato et al. (2019), which can be seen in the chapter "3.3 Supervised Hebbian Learning".
-
-At the moment I am not getting the first approach to work properly with an ojas based network. Probably I will include both approaches in the end.
-
-```python
-N_INPUT = 28 * 28
-N_L1 = 1000
-N_OUTPUT = 10
-
-h_l1 = Layer( N_INPUT, N_L1, random=True, normalize=True, learning=r_ojas )
-h_out = Layer( N_L1, N_OUTPUT, learning=r_ojas, normalize=True, random=True )
-
-twoLayer = Network()
-twoLayer.setCompute( lambda x: h_out.compute( h_l1.compute( x ) ) )
-twoLayer.setLearn( lambda x, y, eta: h_out.learn( ( h_l1.compulearn( x, eta=eta ) ), y, eta=eta ) )
-```
-
-```python
-h_l1.weights
-```
-
-```python
-h_l1.compulearn( X_train[0] )
-h_l1.getWeights()
-```
-
-```python
-runPrintTest( X_test, y_test, twoLayer,"Two Layer Ojas:" );
-```
-
-```python tags=[]
-twoLayer.train( X_train[:20000], y_train[:20000], epochs=5, eta=0.1 )
-```
-
-```python
-print( runTest( X_test, y_test, twoLayer )[0] / X_test.shape[0] * 100 )
-```
-
-# Stage 3: Comparison
-
-Now that everything is defined and the architectures are explored, let's discuss the results regarding following three points:
-
-1. Which model has a higher classification accuracy?
-2. Which model learns faster?
-3. Interesting other effects
-
-
-
-## Single Layer Networks
-
-### Accuracy
-
-In this section the clear winner is the plain simple Hebbian learning rule paired with linear or relu as activation function. Still, the plain Hebbian learning rule is quite impractical in real world usage, due to the weight explosion.
-
-@todo: include code cell showing results (or a table or something like that)
-
-
-### Learning speed
-
-Also here, the plain Hebbian learning rule is clearly the fastest. As it is independent from the ordering in training it does not matter how often it is trained, it's best classification accuracy is reached after one Epoch already
-
-@todo: include code cell creating a plot of accuracy dependent on Epochs
-
-
-### Emerging other effects
-
-T
-
-@todo: include code cell showing the principal component for each of the numbers - "which pixel is most important for a a digit"
-
-
-## Multi-Layer Networks
-
-( this will look like the section above, likely with more text and some graphs )
-
-### Accuracy
-
-
-### Learning Speed
-
-
-### Emerging other effects
-
-
-## Conclusion: How does a neural-network-classifier learning with Hebbs rule compare to a neural-network-classifier learning with Oja's rule?
-
-The network
-( I can only really start to write it with the other results in )
-
-
-
-
-## Future Work
-
-There is many interesting things to have a longer look at:
-
-- How would a spiking neural network with the same learning rules do, compared to the models shown here.
-- Is there a better and actually effective way to train the intermediate layers?
-- How would a convoutional architecture perform?
-- How would recurrance affect the prediction accuracy?
-
-
-# References
-
-LeCun, Y., Cortes, C., & Burges, C.J.C., The MNIST Database of Handwritten Digits \[Accessed 26.11.2020 18:00 CET\]. http://yann.lecun.com/exdb/mnist/
-
-Amato, G., Carrara, F., Falchi, F., Gennaro, C., & Lagani, G.(2019). Hebbian Learning Meets Deep Convolutional Neural Networks. In: Ricci E., Rota Bulò S., Snoek C., Lanz O., Messelodi S., Sebe N. (eds) Image Analysis and Processing – ICIAP 2019. ICIAP 2019. Lecture Notes in Computer Science, vol 11751. Springer, Cham. https://doi.org/10.1007/978-3-030-30642-7_29
-
-@todo, weight decay citation of the big book
-
-
-
-# Old Code Parking Lot
-
-Do not regard anything after this section, I am just parking old code in case I need it again - it will not be present in the final project.
 
 ```python
 # Legacy, just in case I need it again
@@ -898,7 +934,7 @@ Create the single Neurons using the Layer Class.
 ```python
 # Create the neurons
 hebb = Layer( 4, 1, learning=r_hebb )
-hebb_decay = Layer( 4, 1, learning=r_hebb_decay )
+hebb_decay = Layer( 4, 1, learning=r_decay )
 ojas = Layer( 4, 1, learning=lambda W, x, y, eta: W + eta * y * ( x - W * y ) )
 ```
 
@@ -908,7 +944,7 @@ ojas = Layer( 4, 1, learning=lambda W, x, y, eta: W + eta * y * ( x - W * y ) )
 print( "Hebb" )
 quicktest( hebb, test_features, test_labels )
 print( "Hebb Decay" )
-quicktest( hebb_decay, test_features, test_labels )
+# quicktest( hebb_decay, test_features, test_labels )
 print( "Ojas" )
 quicktest( ojas, test_features, test_labels )
 ```
@@ -924,14 +960,14 @@ for x in range( 5 ):
     for i in range( len( order ) ):
         ireal = order[i]
         hebb.learn( train_features[ireal], train_labels[ireal], eta=0.2 )
-        hebb_decay.learn( train_features[ireal], train_labels[ireal], eta=0.2 )
+        # hebb_decay.learn( train_features[ireal], train_labels[ireal], eta=0.2 )
         ojas.learn( train_features[ireal], train_labels[ireal], eta=0.2 )
 ```
 
 ```python
 # Print their final weights
 print( f"Hebb: { hebb.weights }" )
-print( f"Hebb_decay: { hebb_decay.weights }" )
+# print( f"Hebb_decay: { hebb_decay.weights }" )
 print( f"Ojas: { ojas.weights }" )
 ```
 
@@ -941,7 +977,7 @@ print( f"Ojas: { ojas.weights }" )
 print( "Hebb" )
 quicktest( hebb, test_features, test_labels )
 print( "Hebb Decay" )
-quicktest( hebb_decay, test_features, test_labels )
+# quicktest( hebb_decay, test_features, test_labels )
 print( "Ojas" )
 quicktest( ojas, test_features, test_labels )
 ```
