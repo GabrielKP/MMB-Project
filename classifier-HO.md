@@ -57,7 +57,7 @@ Lastly, the three models are compared on following three criterias:
 
 # Stage 1: Definition
 
-In this stage the Neuron, Network, learning Rules and activation Functions are defined and the Data is loaded in.
+In this stage the Neurons, Networks, learning Rules and activation Functions are defined and the Data is loaded in.
 
 ## The Neuron
 
@@ -71,19 +71,19 @@ Whereas $\mathbf{w}$ is a vector of the weights of the input and $f$ is the so c
 
 To make the computations more efficient, multiple Neurons are stacked together in a 'Layer'. In that case, multiple weight Vectors $\mathbf{w}$ are 'stacked' on top of each other creating a weight matrix $\mathbf{W}$ and the output becomes a vector of outputs.
 
-The 'Layer' class below implements the above mentioned framework without specifying any details on activation function and how the neuron learns. The 'Layer' class takes learning rule and activation function as initializing arguments and then provides you with multiple functions:
+The 'Layer' class below implements the above mentioned framework without specifying any details on activation function and how the neuron learns. The 'Layer' class takes learning rule and activation function as initializing arguments and then provides following functions:
 - compute: computes the outputs of neurons in the layer
 - learn: updates the weights for given samples
 - getWeights: returns the weights object
 - train: trains the Layer on a dataset
 
-To build a multi-layer network, for convenience the 'Network' class is defined. It is a Wrapper for multiple stacks of Layers and defines like a Layer following functions:
+For convenience, to build a multi-layer network the 'Network' class is defined. It is a Wrapper for multiple stacks of Layers and defines like a Layer multiple functions:
 - compute: computes the outputs of neurons in the layer
 - learn: updates the weights for given samples
 - getWeights: returns the weights object
 - train: trains the Layer on a dataset
 
-Furthermore, the cell below features most of the functions used in the project.
+Furthermore, the cell below features all of the functions used in the project.
 
 To load the project properly you will need to have matplotlib, numpy and pandas installed.
 
@@ -416,7 +416,7 @@ Hebbs plain Rule has a big drawback: the weights explode indefinitly to infinity
 
 ### Oja's Rule
 
-Another way to stop the weight explosion is by normalizing the weights of each neuron to 1. Additionally the 'forgetting' part is limited to the correct outputs. This gives rise to Oja's rule. This leads to other interesting effects, such as that after enough learning attempts the weights of a single neuron represent the first principal component towards the learnt activation.
+Another way to stop the weight explosion is by normalizing the weights of each neuron to 1. Additionally the 'forgetting' part is limited to the correct outputs. This gives rise to Oja's rule. This leads to other interesting effects, such as that after enough learning attempts the weights of a single neuron represent the first principal component towards the learnt activation. Besides normalizing the weights of each Neuron to 1 after each learning iteration, Oja's rule defines:
 
 \begin{equation}         
 \mathbf{\hat{W}} = \mathbf{W} + \eta \mathbf{y}( \mathbf{x} - \mathbf{y} \mathbf{W} )
@@ -424,8 +424,7 @@ Another way to stop the weight explosion is by normalizing the weights of each n
 
 ### Rules in Python
 
-Finally, the implementation of the rules in Python! For this project the learning rules are implemented as lambda functions. It is important that they work for multiple Neurons stacked on top of each other.
-
+Finally, the implementation of the rules in Python! For this project the learning rules are implemented as lambda functions. It is important to keep in mind that they need to work for multiple Neurons stacked on top of each other.
 
 ```python
 # Learning rules in Python
@@ -489,6 +488,7 @@ linear = lambda x: x
 threshhold = lambda x: ( x > 0.5 ).astype( np.int )
 sigmoid = lambda x: ( 1 / ( 1 + np.exp( -x ) ) )
 relu = lambda x: np.maximum( 0, x )
+
 # Create an array of activation functions for later convenience
 activationFunctions = [ linear, threshhold, sigmoid, relu ]
 activationFunctionNames = [ "Linear", "Threshhold", "Sigmoid", "ReLU" ]
@@ -523,7 +523,7 @@ X_test = readImages( "data/t10k-images-idx3-ubyte.gz" ) / 255
 y_test = np.array( [ np.array( [ 1 if x == label else 0 for x in range(10) ] ) for label in readLabels( "data/t10k-labels-idx1-ubyte.gz" ) ] )
 ```
 
-We can have a look at the train data:
+Visualizing some of the train data:
 
 ```python
 plotData( np.reshape( X_train, ( X_train.shape[0], 28, 28 ) ), y_train, 20 )
@@ -551,7 +551,7 @@ In this section different architectures are systematically explored by altering 
 
 First, single Layer Network are trained on the data, they are easy and straightforward to teach.
 
-Note that Oja's network needs to be initialized with at least one weight which is not 0 for every Neuron, as the normalization will produce invalid values if not. Nevertheless, the weights are initialized to 0, but be aware that there is a runtime error because of that (which does not effect the outcome). @question: initialize in a different way?
+Note that Oja's network needs to be initialized with at least one weight which is not 0 for every Neuron, as the normalization will produce invalid values if not. Nevertheless, the weights are initialized to 0, but be aware that there is a runtime error because of that (which does not affect the results). @question: initialize in a different way?
 
 ```python
 N_INPUT = 28 * 28
@@ -655,7 +655,7 @@ Note that 0.98% of the images in the testset are digits with label '1'. Due to t
 
 ### Multi Layer Networks
 
-Now, a 2 layer network is created.
+Now, a two layer network is created.
 
 Even though it seems simple, training now becomes non-trivial as it is unclear which output intermediat neurons should try to learn. There seem to be two approaches:
 
@@ -765,8 +765,7 @@ LeCun, Y., Cortes, C., & Burges, C.J.C., The MNIST Database of Handwritten Digit
 
 Amato, G., Carrara, F., Falchi, F., Gennaro, C., & Lagani, G.(2019). Hebbian Learning Meets Deep Convolutional Neural Networks. In: Ricci E., Rota Bulò S., Snoek C., Lanz O., Messelodi S., Sebe N. (eds) Image Analysis and Processing – ICIAP 2019. ICIAP 2019. Lecture Notes in Computer Science, vol 11751. Springer, Cham. https://doi.org/10.1007/978-3-030-30642-7_29
 
-@todo, weight decay citation of the big book
-
+@todo: Oja's paper
 
 
 # Old Code Parking Lot
