@@ -90,6 +90,9 @@
 # To load the project properly you will need to have matplotlib, numpy and pandas installed.
 
 # %%
+np.argmax( [0,1,2,6,0] )
+
+# %%
 # %matplotlib inline
 
 # Imports
@@ -110,6 +113,14 @@ def normalizeRows( x ):
     return x / np.linalg.norm( x, axis=1 )[ :, None ]
 
 
+def softmax( x ):
+    """
+    Converts all values in vector x so that they add up to 1
+    """
+    xrel = x - np.max( x ) # Handle exploding Hebb Values
+    return np.exp( xrel ) / np.sum( np.exp( xrel ), axis=0 )
+
+
 def runTest( X, y, network ):
     """
     Computes for given X and y data the amount of correct predictions by the given network.
@@ -127,8 +138,10 @@ def runTest( X, y, network ):
     for i in range( X.shape[0] ):
         predvec = network.compute( X[i] )
         # Require predictions to be over 0
-        predcan = np.where( ( predvec == np.amax( predvec ) ) & ( predvec > 0 ) )[0] # Candidates
-        preds[i] = None if predcan.shape[0] == 0 else predcan[0]   # Take first candidate
+        if np.sum( predvec ) == 0:
+            preds[i] = None
+        else:
+            preds[i] = np.argmax( softmax( predvec ) )
 
     # Compare
     comp = preds == y
@@ -537,14 +550,14 @@ plt.legend( activationFunctionNames );
 # %% [markdown]
 # ## Softmax
 #
-# In the end the vector of all activations \mathbf{y} is fed through a softmax which converts them to a value between 0 and 1, so that they all sum together to 1:
+# In the end the vector of all activations $\mathbf{y}$ is fed through a softmax which converts them to a value between 0 and 1, so that they all sum together to 1:
 #
 # \begin{equation}
 #     f(y_i) = \frac{e^{y_i}}{\sum_y e^{y}}
 # \end{equation}
 
 # %%
-softmax = lambda x: np.exp( x ) / np.sum( np.exp(x), axis=0 )
+# softmax = lambda x: np.exp( x ) / np.sum( np.exp(x), axis=0 )
 
 # %% [markdown]
 # ## The Data
@@ -605,8 +618,8 @@ plotDistribution( y_train, "Train data distribution" )
 N_INPUT = 28 * 28
 N_OUTPUT = 10
 nTest = y_test.shape[0]
-epochs = 5  # How often the Training Set is iterated over, Set lower to save significant amount of time
-trials = 3  # Amount of different testRuns, set lower for maximum time saving
+epochs = 1  # How often the Training Set is iterated over, Set lower to save significant amount of time
+trials = 1  # Amount of different testRuns, set lower for maximum time saving
 
 # Function to create empty arrays - to save space below
 eA = lambda: [ [] for _ in range( len( activationFunctions ) ) ]
