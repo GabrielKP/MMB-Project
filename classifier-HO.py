@@ -237,19 +237,13 @@ class Layer():
         return self.aF( np.dot( self.weights, x ) )
 
 
-    def train( self, X, y, epochs, eta, permute, seed=None, verbose=True ):
+    def train( self, Xt, yt, X_val, y_val, epochs, eta, permute, seed=None, verbose=True, decay= ):
         """
         Trains the neural network on training set for given epochs
         Returns history of training accuracy over validation set for each epoch
         """
-        assert X.shape[0] == y.shape[0], "X shape does not match y shape!"
-
-        # Pick last 8% as validation dataset
-        lindex = int( X.shape[0] * 0.92 )
-        Xt = X[:lindex]
-        yt = y[:lindex]
-        Xval = X[lindex:]
-        yval = y[lindex:]
+        assert Xt.shape[0] == yt.shape[0], "X shape does not match y shape!"
+        assert X_val.shape[0] == y_val.shape[0], "X shape does not match y shape (Val Data)!"
 
         # Set seed
         np.random.seed( seed )
@@ -267,7 +261,7 @@ class Layer():
                 self.learn( Xt[i], yt[i], eta )
 
             # Compute validation, save and print
-            correct, _ = runTest( Xval, yval, self )
+            correct, _ = runTest( X_val, y_val, self )
             hist.append( correct )
             if verbose:
                 print( f"Val: {correct:.4f}" )
@@ -357,6 +351,8 @@ def runPrintTest( X, y, network, name="" ):
 
 def trainNewNetworksAndTest( X_train,
                             y_train,
+                            X_val,
+                            y_val,
                             X_test,
                             y_test,
                             epochs,
@@ -375,6 +371,8 @@ def trainNewNetworksAndTest( X_train,
     history of Validationa accuracies for each epoch, run and network.
     X_train: Training data
     y_train: Training labels
+    X_val: Validation data
+    y_val: Validation labels
     X_test: Testing data
     y_test: Tesing labels
     epochs: Amount of iterations through testset for a single network
@@ -391,7 +389,7 @@ def trainNewNetworksAndTest( X_train,
 
 
     for run in range( runs ):
-        print( f"Trial Number {run + 1}" )
+        print( f"Run Number {run + 1}" )
         # Initialize Networks
         hebb = Layer( N_INPUT, N_OUTPUT, learning=r_hebb, activationFunction=linear )
         deca = Layer( N_INPUT, N_OUTPUT, learning=r_decay, activationFunction=linear )
@@ -399,13 +397,13 @@ def trainNewNetworksAndTest( X_train,
         # Train
         print( "Hebb" )
         np.random.seed( run )
-        hisHebb = hebb.train( X_train, y_train, permute=permute, epochs=epochs, eta=0.1, seed=None, verbose=verbose )
+        hisHebb = hebb.train( X_train, y_train, X_val, y_val, permute=permute, epochs=epochs, eta=eta, seed=None, verbose=verbose )
         print( "Decay" )
         np.random.seed( run )
-        hisDeca = deca.train( X_train, y_train, permute=permute, epochs=epochs, eta=0.1, seed=None, verbose=verbose )
+        hisDeca = deca.train( X_train, y_train, X_val, y_val, permute=permute, epochs=epochs, eta=eta, seed=None, verbose=verbose )
         print( "Oja")
         np.random.seed( run )
-        hisOjas = ojas.train( X_train, y_train, permute=permute, epochs=epochs, eta=0.1, seed=None, verbose=verbose )
+        hisOjas = ojas.train( X_train, y_train, X_val, y_val, permute=permute, epochs=epochs, eta=eta, seed=None, verbose=verbose )
         # Run test after training
         hebb_post_acc, hebb_post_iWrong = runTest( X_test, y_test, hebb )
         deca_post_acc, deca_post_iWrong = runTest( X_test, y_test, deca )
@@ -464,6 +462,8 @@ def plotData( images, labels, n ):
     Prints n random images with their labels from given images
     Code adapted from: https://azure.microsoft.com/de-de/services/open-datasets/catalog/mnist/
     """
+    # Get images in right format:
+    images = np.reshape( images, ( images.shape[0], 28, 28 ) )
     # Convert labels to digits:
     labels = asDigits( labels )
     plt.figure( figsize=( 16, 6 ) )
@@ -670,33 +670,48 @@ activationFunctionNames = [ "Linear" ]
 # First, the data needs to be loaded in, there is 2 things to keep in mind:
 # - The labels are converted into One-Hot-Encodings. ( e.g. 1 -> [0,1,0,0,...], 2 -> [0,0,1,0,...] )
 # - The images have pixel values from 0 to 255, so the data is divided by 255 to have all data between 0 and 1.
+# - 92% of the training examples will be used for training, 8% for validation during training
 
 # %%
-print( "Train" )
-X_train = readImages( "data/train-images-idx3-ubyte.gz" ) / 255
-y_train = np.array( [ np.array( [ 1 if x == label else 0 for x in range(10) ] ) for label in readLabels( "data/train-labels-idx1-ubyte.gz" ) ] )
+print( "Train & Validation" )
+data = ( readImages( "data/train-images-idx3-ubyte.gz" ) / 255 )
+labels = np.array( [ np.array( [ 1 if x == label else 0 for x in range(10) ] ) for label in readLabels( "data/train-labels-idx1-ubyte.gz" ) ] )
+
+# Pick last 8% as validation dataset
+lindex = int( data.shape[0] * 0.92 )
+X_train = data[:lindex]
+y_train = labels[:lindex]
+X_val = data[lindex:]
+y_val = labels[lindex:]
 
 print( "\nTest" )
-X_test = readImages( "data/t10k-images-idx3-ubyte.gz" ) / 255
+X_test = ( readImages( "data/t10k-images-idx3-ubyte.gz" ) / 255 )
 y_test = np.array( [ np.array( [ 1 if x == label else 0 for x in range(10) ] ) for label in readLabels( "data/t10k-labels-idx1-ubyte.gz" ) ] )
 
 # %% [markdown]
-# Visualizing some of the train data:
+# This is how the train data looks like:
 
 # %%
-plotData( np.reshape( X_train, ( X_train.shape[0], 28, 28 ) ), y_train, 20 )
+plotData( X_train, y_train, 20 )
+
+# %% [markdown]
+# Validation Data:
+
+# %%
+plotData( X_val, y_val, 20 )
 
 # %% [markdown]
 # And the test data:
 
 # %%
-plotData( np.reshape( X_test, ( X_test.shape[0] , 28, 28 ) ), y_test, 20 )
+plotData( X_test, y_test, 20 )
 
 # %% [markdown]
 # The numbers are distributed as follows for both sets:
 
 # %%
 plotDistribution( y_test, "Test data distribution" )
+plotDistribution( y_val, "Validation data distribution" )
 plotDistribution( y_train, "Train data distribution" )
 
 # %% [markdown]
@@ -713,15 +728,17 @@ plotDistribution( y_train, "Train data distribution" )
 epochs = 3
 runs = 4
 accuracies, wrongIndices, valHistory = trainNewNetworksAndTest( X_train,
-                                                              y_train,
-                                                              X_test,
-                                                              y_test,
-                                                              epochs,
-                                                              runs
+                                                               y_train,
+                                                               X_val,
+                                                               y_val,
+                                                               X_test,
+                                                               y_test,
+                                                               epochs,
+                                                               runs
                                                               )
 
 # %% [markdown]
-# The runs in the runs are averaged...
+# The runs are averaged:
 
 # %%
 # Average the accuracies
@@ -796,16 +813,15 @@ plotAccuracies( [ accuracies['hebb'][run], accuracies['deca'][run], accuracies['
                f"Accuracy of Networks in Run {run}"
               )
 
-
 # %% [markdown]
-# There are some interesting observations for these results already:
+# There are some interesting observations for these results:
 # 1. The Hebbian network is steady from the first epoch on
 # 2. The amount of epochs does not seem to influence the Accuracy Decay or Oja network overall
 # 3. The Hebbian network seems to be significantly better than the other 2, which seem to have similar accuracies.
 # 4. All networks are incredibly bad at classifying the 5
 
 # %% [markdown]
-# The first observation is easily explained: Whereas the other rules have some sort of "forgetting" term, the plain Hebbian rule only adds input to expected output relations to the weights. Because of these are independent on the current weights of the network, and because addition is associative, the order of training examples does not matter. This is also the reason the accuracy for the plain Hebbian network stays exactly the same through time, as after each epoch the weights just changed in the exact same proportions as in the epoch before.
+# The first observation is easily explained: Whereas the other rules have some sort of "forgetting" term, the plain Hebbian rule only adds input to expected output relations to the weights. Because these are independent on the current weights of the network, and because addition is associative, the order of training examples does not matter. This is also the reason the accuracy for the plain Hebbian network stays exactly the same through time, as after each epoch the weights just changed in the exact same proportions as in the epoch before.
 #
 # The second observation highly suggests that the deciding factor for classification accuracy is training order. But how does training order affect the classification accuracy?
 
@@ -814,13 +830,72 @@ plotAccuracies( [ accuracies['hebb'][run], accuracies['deca'][run], accuracies['
 #
 # If training order is the
 #
-# First a few different training orders are created
+# First a few different training orders are created:
+# 1. One number in the end
+# 2. As even as possible
+# 3. "Difficult" numbers such as 5 towards the end
+# 4. 
 
 # %%
+# Get all different numbers
+numsData = []
+numsLabels = []
+dig = asDigits( y_train )
+for i in range( 10 ):
+    numsData.append( X_train[dig == i] )
+    numsLabels.append( y_train[dig == i] )
+
+# %%
+# Distribute numbers evenly
+X_trainEven = np.zeros( X_train.shape )
+y_trainEven = np.zeros( y_train.shape )
+turn = 0
+numIdx = 0
+i = 0
+while i < X_train.shape[0]:
+    for c in range( 10 ):
+        if numIdx < numsLabels[c].shape[0]:
+            X_trainEven[i] = numsData[c][numIdx]
+            y_trainEven[i] = numsLabels[c][numIdx]
+            i += 1
+    numIdx += 1
+print( i )
+
+# Reverse so that uneven "excess" numbers are at the beginning
+X_trainEven = np.flip( X_trainEven, axis=0 )
+y_trainEven = np.flip( y_trainEven, axis=0 )
+
+# %%
+numsLabels[1].shape
+
+# %%
+accuraciesEven, wrongIndicesEven, valHistoryEven = trainNewNetworksAndTest( X_trainEven,
+                                                                           y_trainEven,
+                                                                           X_val,
+                                                                           y_val,
+                                                                           X_test,
+                                                                           y_test,
+                                                                           3,
+                                                                           3,
+                                                                           permute=False,
+                                                                          )
+run = 0
+plotNumberAccFromWrong( y_test,
+                       wrongIndicesEven['hebb'][run],
+                       wrongIndicesEven['deca'][run],
+                       wrongIndicesEven['ojas'][run],
+                       f"Accuracy per number for Run {run}"
+                      )
+plotAccuracies( [ accuraciesEven['hebb'][run], accuraciesEven['deca'][run], accuraciesEven['ojas'][run] ],
+               learningRuleNames,
+               f"Accuracy of Networks in Run {run}"
+              )
 
 # %% [markdown]
-# Finally, now that the best training order seems to be identified, these networks with the best classification accuracy are taken again and we can have a look which network struggles with which numbers specifically:
+# ### Why do the networks struggle with the 5?
 #
+# Which labels does the 5 get?
+# Visualization of weights
 
 # %% [markdown]
 # # Stage 3: Comparison
