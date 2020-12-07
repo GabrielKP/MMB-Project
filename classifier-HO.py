@@ -19,8 +19,6 @@
 #
 # @todo:
 # - x/X y/Y consistency
-# - Speed optimization for train/compute/learn
-# - Fix Oja's name to Oja.
 # - Decaying Learning Rate
 # - Hebb Decay Rule should be included in title
 #
@@ -145,7 +143,7 @@ def runTest( X, y, network ):
 
     # Compare
     comp = preds == y
-    correct = sum( comp.astype( np.int ) )
+    correct = sum( comp.astype( np.int ) ) / y.shape[0]
     indexWrong = np.where( comp == False )
     return correct, indexWrong
 
@@ -239,25 +237,42 @@ class Layer():
         return self.aF( np.dot( self.weights, x ) )
 
 
-    def train( self, X, y, epochs, eta, seed=None, plot=False ):
+    def train( self, X, y, epochs, eta, permute, seed=None, verbose=True ):
         """
         Trains the neural network on training set for given epochs
+        Returns history of training accuracy over validation set for each epoch
         """
         assert X.shape[0] == y.shape[0], "X shape does not match y shape!"
 
+        # Pick last 8% as validation dataset
+        lindex = int( X.shape[0] * 0.92 )
+        Xt = X[:lindex]
+        yt = y[:lindex]
+        Xval = X[lindex:]
+        yval = y[lindex:]
+
         # Set seed
         np.random.seed( seed )
+        
+        hist = []
+
         for x in range( epochs ):
             print( f"Epoch { x + 1 }: ", end='' )
-            for i in np.random.permutation( X.shape[0] ):
-                self.learn( X[i], y[i], eta )
+            if permute:
+                permutation = np.random.permutation( Xt.shape[0] )
+            else:
+                permutation = list( range( Xt.shape[0] ) )
+    
+            for i in permutation:
+                self.learn( Xt[i], yt[i], eta )
 
-            # Pick last 10% and compute the hit rate on them
-            lindex = int( X.shape[0] * 0.9 )
-            correct, _ = runTest( X[lindex:], y[lindex:], self )
-            print( f"Val: { correct }/{ X[lindex:].shape[0] }" )
-
-        # @todo: plot
+            # Compute validation, save and print
+            correct, _ = runTest( Xval, yval, self )
+            hist.append( correct )
+            if verbose:
+                print( f"Val: {correct:.4f}" )
+                
+        return hist
 
 
 class Network:
@@ -306,25 +321,25 @@ class Network:
         self.learn( x, y, eta )
 
 
-    def train( self, X, y, epochs, eta, seed=None, plot=False ):
-        """
-        Trains the neural network on training set for given epochs
-        """
-        assert X.shape[0] == y.shape[0], "X shape does not match y shape!"
+#     def train( self, X, y, epochs, eta, seed=None, plot=False ):
+#         """
+#         Trains the neural network on training set for given epochs
+#         """
+#         assert X.shape[0] == y.shape[0], "X shape does not match y shape!"
 
-        # Set seed
-        np.random.seed( seed )
-        for x in range( epochs ):
-            print( f"Epoch { x + 1 }: ", end='' )
-            for i in np.random.permutation( X.shape[0] ):
-                self.learn( X[i], y[i], eta )
+#         # Set seed
+#         np.random.seed( seed )
+#         for x in range( epochs ):
+#             print( f"Epoch { x + 1 }: ", end='' )
+#             for i in np.random.permutation( X.shape[0] ):
+#                 self.learn( X[i], y[i], eta )
 
-            # Pick last 10% and compute the hit rate on them
-            lindex = int( X.shape[0] * 0.9 )
-            correct, _ = runTest( X[lindex:], y[lindex:], self )
-            print( f"Val: { correct }/{ X[lindex:].shape[0] }" )
+#             # Pick last 10% and compute the hit rate on them
+#             lindex = int( X.shape[0] * 0.9 )
+#             correct, _ = runTest( X[lindex:], y[lindex:], self )
+#             print( f"Val: { correct }" )
 
-        # @todo: plot
+#         # @todo: plot
 
 
 
@@ -338,6 +353,76 @@ def runPrintTest( X, y, network, name="" ):
     correct, indicesWrong = runTest( X, y, network )
     print( f"{name} {correct}/{y.shape[0]} correct: { correct/y.shape[0] * 100 } %" )
     return correct, indicesWrong
+
+
+def trainNewNetworksAndTest( X_train,
+                            y_train,
+                            X_test,
+                            y_test,
+                            epochs,
+                            runs,
+                            permute=True,
+                            N_INPUT=28*28,
+                            N_OUTPUT=10,
+                            r_hebb=r_hebb,
+                            r_decay=r_decay,
+                            r_ojas=r_ojas,
+                            eta=0.1,
+                            verbose=True
+                           ):
+    """
+    Trains 3 new networks and returns dictionaries for accuracies, wrongly classified indices and
+    history of Validationa accuracies for each epoch, run and network.
+    X_train: Training data
+    y_train: Training labels
+    X_test: Testing data
+    y_test: Tesing labels
+    epochs: Amount of iterations through testset for a single network
+    runs: Divisible by 2, Amount of different testruns for each network
+    N_INPUT: input number of neurons
+    N_OUTPUT: output number of neurons
+    r_*: learning rules
+    eta: learning rate
+    """
+    # Create a dictionaries with all the networks and activationFunctions
+    accuracies = { 'hebb': [], 'deca': [], 'ojas': [] }
+    wrongIndices = { 'hebb': [], 'deca': [], 'ojas': [] }
+    valHistory = { 'hebb': [], 'deca': [], 'ojas': [] }
+
+
+    for run in range( runs ):
+        print( f"Trial Number {run + 1}" )
+        # Initialize Networks
+        hebb = Layer( N_INPUT, N_OUTPUT, learning=r_hebb, activationFunction=linear )
+        deca = Layer( N_INPUT, N_OUTPUT, learning=r_decay, activationFunction=linear )
+        ojas = Layer( N_INPUT, N_OUTPUT, learning=r_ojas, activationFunction=linear )
+        # Train
+        print( "Hebb" )
+        np.random.seed( run )
+        hisHebb = hebb.train( X_train, y_train, permute=permute, epochs=epochs, eta=0.1, seed=None, verbose=verbose )
+        print( "Decay" )
+        np.random.seed( run )
+        hisDeca = deca.train( X_train, y_train, permute=permute, epochs=epochs, eta=0.1, seed=None, verbose=verbose )
+        print( "Oja")
+        np.random.seed( run )
+        hisOjas = ojas.train( X_train, y_train, permute=permute, epochs=epochs, eta=0.1, seed=None, verbose=verbose )
+        # Run test after training
+        hebb_post_acc, hebb_post_iWrong = runTest( X_test, y_test, hebb )
+        deca_post_acc, deca_post_iWrong = runTest( X_test, y_test, deca )
+        ojas_post_acc, ojas_post_iWrong = runTest( X_test, y_test, ojas )
+        # Save data in the dictionaries
+        accuracies['hebb'].append( hebb_post_acc )
+        accuracies['deca'].append( deca_post_acc )
+        accuracies['ojas'].append( ojas_post_acc )
+        wrongIndices['hebb'].append( hebb_post_iWrong )
+        wrongIndices['deca'].append( deca_post_iWrong )
+        wrongIndices['ojas'].append( ojas_post_iWrong )
+        valHistory['hebb'].append( hisHebb )
+        valHistory['deca'].append( hisDeca )
+        valHistory['ojas'].append( hisOjas )
+
+    print( "Done" )
+    return accuracies, wrongIndices, valHistory
 
 
 def readImages( path ):
@@ -407,6 +492,7 @@ def asDigits( labels ):
     """
     return np.argmax( labels, axis=1 )
 
+    
 def plotDistribution( labels, title="" ):
     """
     Plots distribution of digits in dataset
@@ -433,6 +519,81 @@ def plotDistribution( labels, title="" ):
         plt.text( bins[i] - 0.4, v + 0.4, f"{v:.2f}%", rotation=45)
     plt.title( title )
     plt.show()
+    
+def computeAccPerLabel( y, wrongIndices ):
+    """
+    Computes Accuracy for given testset y and wrongly marked indices
+    """
+    y = asDigits( y )
+    bins = [0,1,2,3,4,5,6,7,8,9,10]
+    distr, _ = np.histogram( y, bins )
+    
+    # Get labels for wrong indices
+    wrongIndiceLabels = y[wrongIndices]
+    wrongs, _ = np.histogram( wrongIndiceLabels, bins )
+    
+    return ( distr - wrongs ) / distr
+
+def plotNumberAccFromWrong( y, wrongHebb, wrongDeca, wrongOjas, title ):
+    """
+    Plots a bar graph with labels on x axis and accuracy on y axis with bars for all learning rules
+    """
+    percentHebb = computeAccPerLabel( y, wrongHebb )
+    percentDeca = computeAccPerLabel( y, wrongDeca )
+    percentOjas = computeAccPerLabel( y, wrongOjas )
+
+    width = 1
+    bins = np.array( range(11) )
+
+    f, ax = plt.subplots( 1, 1, figsize=(15, 5) )
+    ax.bar( bins[:-1] * 4, percentHebb, width=width )
+    ax.bar( bins[:-1] * 4 + width, percentDeca, width=width )
+    ax.bar( bins[:-1] * 4 + width * 2, percentOjas, width=width )
+    ax.set_ylim( [0, 1.15] )
+
+    # axis labels
+    ax.set_ylabel( "Accuracy in %" )
+    ax.set_xlabel( "image labels" )
+
+    # x ticks
+    ax.set_xticks( bins[:-1] * 4 + width )
+    ax.set_xticklabels( bins[:-1] )
+
+    # numbers above bars
+    offsetx = -0.2
+    offsety = 0.03
+    for i, v in enumerate( percentHebb ):
+        plt.text( bins[i] * 4 + offsetx, v + offsety, f"{v:.2f}%", rotation=90, fontsize=9 )
+    for i, v in enumerate( percentDeca ):
+        plt.text( bins[i] * 4 + width + offsetx, v + offsety, f"{v:.2f}%", rotation=90, fontsize=9 )
+    for i, v in enumerate( percentOjas ):
+        plt.text( bins[i] * 4 + width * 2 + offsetx, v + offsety, f"{v:.2f}%", rotation=90, fontsize=9 )
+
+    plt.legend( ["Hebbian", "Decay", "Oja"] )
+    plt.title( title )
+    plt.show()
+
+def plotAccuracies( accs, learningRuleNames, title ):
+    plt.figure( figsize=( 10, 7 ) )
+    plt.title( title )
+    plt.ylim( [0, 1] )
+    xs = range( len( accs ) )
+
+    # plot the bars
+    bars = plt.bar( xs, accs, width=bWidth, align='center' )
+
+    # Colors
+    bars[1].set_color( 'orange' )
+    bars[2].set_color( 'green' )
+
+    # Set x axis and labels
+    plt.xticks( xs, learningRuleNames )
+    plt.xlabel( 'Learning Rules' )
+    plt.ylabel( 'Accuracy in %' )
+
+    # numbers above bars
+    for i, v in enumerate( accs ):
+        plt.text( xs[i] - 0.09, v + 0.03, f"{v:.4f}%" )
 
 
 # %% [markdown]
@@ -474,7 +635,8 @@ def plotDistribution( labels, title="" ):
 r_hebb = lambda W, x, y, eta: W + eta * np.outer( y, x.T )
 r_decay = lambda W, x, y, eta: W + eta * ( ( x - W ) * y[ :, None ] )
 r_ojas = lambda W, x, y, eta: W + eta * ( ( x - W * y[ :, None ] ) * y[ :, None ] )
-# @todo: @question: does nonlinearity need to be taken into account for the learning rule?
+
+learningRuleNames = ["Hebbian", "Decay", "Oja"]
 
 # %% [markdown]
 # ## Activation functions
@@ -533,8 +695,10 @@ sigmoid = lambda x: ( 1 / ( 1 + np.exp( -x ) ) )
 relu = lambda x: np.maximum( 0, x )
 
 # Create an array of activation functions for later convenience
-activationFunctions = [ linear, threshhold, sigmoid, relu ]
-activationFunctionNames = [ "Linear", "Threshhold", "Sigmoid", "ReLU" ]
+# activationFunctions = [ linear, threshhold, sigmoid, relu ]
+# activationFunctionNames = [ "Linear", "Threshhold", "Sigmoid", "ReLU" ]
+activationFunctions = [ linear ]
+activationFunctionNames = [ "Linear" ]
 
 # %% [markdown]
 # Visualizing the activation functions:
@@ -596,123 +760,128 @@ plotData( np.reshape( X_test, ( X_test.shape[0] , 28, 28 ) ), y_test, 20 )
 plotDistribution( y_test, "Test data distribution" )
 plotDistribution( y_train, "Train data distribution" )
 
-# %%
-
 # %% [markdown]
 # # Stage 2: Architecture
 #
-# In this section different architectures are systematically explored by altering parameters such as amount of layers, layer size and activation function.
-#
-# (thought: maybe merge Stage 2 and 3 and discuss the results directly under each trial...)
-#
-# @question: analyze errors more thoroughly with precision and recall and look which numbers cause the errors?
+# In this section the three networks are trained.
 
 # %% [markdown]
-# ### Single Layer Networks
+# ### Trial 1
 #
-# First, single Layer Network are trained on the data, they are easy and straightforward to teach.
-#
-# Note that Oja's network needs to be initialized with at least one weight which is not 0 for every Neuron, as the normalization will produce invalid values if not. Nevertheless, the weights are initialized to 0, but be aware that there is a runtime error because of that (which does not affect the results). @question: initialize in a different way?
+# First, we go through one single Trial in which all three networks are trained 10 times on 10 epochs:
 
 # %%
-N_INPUT = 28 * 28
-N_OUTPUT = 10
-nTest = y_test.shape[0]
-epochs = 1  # How often the Training Set is iterated over, Set lower to save significant amount of time
-trials = 1  # Amount of different testRuns, set lower for maximum time saving
-
-# Function to create empty arrays - to save space below
-eA = lambda: [ [] for _ in range( len( activationFunctions ) ) ]
-
-# Create a dictionary with all the networks and activationFunctions
-oneLNacc = { 'hebb': eA(), 'deca': eA(), 'ojas': eA() }
-oneLNaccPre = { 'hebb': eA(), 'deca': eA(), 'ojas': eA() } # Accuracy before training
-oneLNind = { 'hebb': eA(), 'deca': eA(), 'ojas': eA() }
-oneLNindPre = { 'hebb': eA(), 'deca': eA(), 'ojas': eA() } # Wrong indices before training
-
-
-for trial in range( trials ):
-    print( f"Trial Number {trial + 1}" )
-    for i, aF in enumerate( activationFunctions ):
-        print( activationFunctionNames[i] )
-        # Initialize Networks
-        hebb = Layer( N_INPUT, N_OUTPUT, learning=r_hebb, activationFunction=aF )
-        deca = Layer( N_INPUT, N_OUTPUT, learning=r_decay, activationFunction=aF )
-        ojas = Layer( N_INPUT, N_OUTPUT, learning=r_ojas, activationFunction=aF)
-        # Run test before
-        hebb_pre_acc, hebb_pre_iWrong = runTest( X_test, y_test, hebb )
-        deca_pre_acc, deca_pre_iWrong = runTest( X_test, y_test, deca )
-        ojas_pre_acc, ojas_pre_iWrong = runTest( X_test, y_test, ojas )
-        # Train
-        print( "Hebb" )
-        np.random.seed( trial )
-        hebb.train( X_train, y_train, epochs=epochs, eta=0.1, seed=None )
-        print( "Decay" )
-        np.random.seed( trial )
-        deca.train( X_train, y_train, epochs=epochs, eta=0.1, seed=None )
-        print( "Oja")
-        np.random.seed( trial )
-        ojas.train( X_train, y_train, epochs=epochs, eta=0.1, seed=None )
-        # Run test after
-        hebb_post_acc, hebb_post_iWrong = runTest( X_test, y_test, hebb )
-        deca_post_acc, deca_post_iWrong = runTest( X_test, y_test, deca )
-        ojas_post_acc, ojas_post_iWrong = runTest( X_test, y_test, ojas )
-        # Save data in the dictionaries
-        oneLNacc['hebb'][i].append( hebb_post_acc / nTest )
-        oneLNind['hebb'][i].append( hebb_post_iWrong )
-        oneLNaccPre['hebb'][i].append( hebb_pre_acc / nTest )
-        oneLNindPre['hebb'][i].append( hebb_pre_iWrong )
-        oneLNacc['deca'][i].append( deca_post_acc / nTest )
-        oneLNind['deca'][i].append( deca_post_iWrong )
-        oneLNaccPre['deca'][i].append( deca_pre_acc / nTest )
-        oneLNindPre['deca'][i].append( deca_pre_iWrong )
-        oneLNacc['ojas'][i].append( ojas_post_acc / nTest )
-        oneLNind['ojas'][i].append( ojas_post_iWrong )
-        oneLNaccPre['ojas'][i].append( ojas_pre_acc / nTest )
-        oneLNindPre['ojas'][i].append( ojas_pre_iWrong )
-
-
-print( "Done" )
+epochs = 3
+runs = 4
+accuracies, wrongIndices, valHistory = trainNewNetworksAndTest( X_train,
+                                                              y_train,
+                                                              X_test,
+                                                              y_test,
+                                                              epochs,
+                                                              runs
+                                                              )
 
 # %% [markdown]
-# Now the trials are averaged and visualized
+# The runs in the runs are averaged...
 
 # %%
-# Average the Results
-# @todo: fix the thing with the threshhold function or delete it
-# @todo: own function for averaging and plotting
-# @todo: plot learning over epochs
-for network in oneLNacc.keys():
-    resList = oneLNacc[network]
-    for i in range( len( resList ) ):
-        resList[i] = np.average( resList[i] )
+# Average the accuracies
+avgAccs = dict()
+for network in accuracies.keys():
+    avgAccs[network] = np.average( accuracies[network] )
+
+# Average the epoch accuracies
+avgValHis = dict()
+for network in valHistory.keys():
+    avgValHis[network] = np.average( valHistory[network], axis=0 )
+
+# %% [markdown]
+# ...and then visualized:
 
 # %%
-x = np.arange( 0, len( activationFunctions ) * 2, 2 )
-bWidth = 0.6
+# Testset accuracy    
+plotAccuracies( avgAccs.values(), learningRuleNames, f"Average classification accuracy on Testset after {epochs} Epochs" )
 
-# Matplotlib preparation
+# %%
+# Run Validation accuracy throughout epochs
+plt.figure( figsize=( 15, 10 ) )
+xs = range( epochs )
+
+for r in range( runs ):
+    plt.subplot( int( runs / 2 ), 2, r + 1 )
+    plt.ylim( [0, 1] )
+    plt.plot( xs, valHistory['hebb'][0] )
+    plt.plot( xs, valHistory['deca'][0] )
+    plt.plot( xs, valHistory['ojas'][0] )
+    plt.title( f"Run {r}" )
+
+    # Axes
+    plt.xlabel( 'Epochs' )
+    plt.xticks( xs )
+    plt.ylabel( 'Accuracy in %' )
+
+# Legend
+plt.suptitle( "Classification Accuracy on Validation Data by epoch for each run" )
+plt.legend( learningRuleNames )
+plt.tight_layout();
+
+# %%
+# Average Validation accuracy throughout epochs
 plt.figure( figsize=( 10, 7 ) )
-plt.title( "Accuracy for each network depending on activation Functions" )
+plt.title( "Average classification Accuracy on Validation Data by epoch" )
 plt.ylim( [0, 1] )
+xs = range( epochs )
 
-# plot the bars
-plt.bar( x, [ acc for acc in oneLNacc['hebb'] ], width=bWidth )
-plt.bar( x + bWidth, [ acc for acc in oneLNacc['deca'] ], width=bWidth )
-plt.bar( x + bWidth * 2, [ acc for acc in oneLNacc['ojas'] ], width=bWidth )
+plt.plot( xs, avgValHis['hebb'] )
+plt.plot( xs, avgValHis['deca'] )
+plt.plot( xs, avgValHis['ojas'] )
 
-# Set x axis and labels
-plt.xticks( x + bWidth, activationFunctionNames )
-plt.xlabel( 'activation Functions' )
-plt.ylabel( 'Accuracy' )
+# Axes
+plt.xlabel( 'Epochs' )
+plt.xticks( xs )
+plt.ylabel( 'Accuracy in %' )
 
-# Set legend
-plt.legend( ["Hebbian", "Decay", "Oja"] );
+# Legend
+plt.legend( learningRuleNames );
+
+# %%
+run = 0
+plotNumberAccFromWrong( y_test,
+                       wrongIndices['hebb'][run],
+                       wrongIndices['deca'][run],
+                       wrongIndices['ojas'][run],
+                       f"Accuracy per number for Run {run}"
+                      )
+plotAccuracies( [ accuracies['hebb'][run], accuracies['deca'][run], accuracies['ojas'][run] ],
+               learningRuleNames,
+               f"Accuracy of Networks in Run {run}"
+              )
+
 
 # %% [markdown]
-# The Results show that in terms of the activation function the linear activation Function seems to work best. For the networks, the plain Hebbian rule outperforms both other rules, with the Oja and Decay rule competing for the second place depending on the amount of epochs and trial runs.
+# There are some interesting observations for these results already:
+# 1. The Hebbian network is steady from the first epoch on
+# 2. The amount of epochs does not seem to influence the Accuracy Decay or Oja network overall
+# 3. The Hebbian network seems to be significantly better than the other 2, which seem to have similar accuracies.
+# 4. All networks are incredibly bad at classifying the 5
+
+# %% [markdown]
+# The first observation is easily explained: Whereas the other rules have some sort of "forgetting" term, the plain Hebbian rule only adds input to expected output relations to the weights. Because of these are independent on the current weights of the network, and because addition is associative, the order of training examples does not matter. This is also the reason the accuracy for the plain Hebbian network stays exactly the same through time, as after each epoch the weights just changed in the exact same proportions as in the epoch before.
 #
-# Note that 0.98% of the images in the testset are digits with label '1'. Due to that and the way the evaluation works, a classification accuracy of 0.098 means the network learnt nothing, or in other words is dysfunctional. This can be currently seen with the treshhold activation function. I will fix that for the final version.
+# The second observation highly suggests that the deciding factor for classification accuracy is training order. But how does training order affect the classification accuracy?
+
+# %% [markdown]
+# ### The effect of training order on classification accuracy
+#
+# If training order is the
+#
+# First a few different training orders are created
+
+# %%
+
+# %% [markdown]
+# Finally, now that the best training order seems to be identified, these networks with the best classification accuracy are taken again and we can have a look which network struggles with which numbers specifically:
+#
 
 # %% [markdown]
 # # Stage 3: Comparison
@@ -815,6 +984,57 @@ twoLayer.train( X_train[:20000], y_train[:20000], epochs=5, eta=0.1 )
 
 # %%
 print( runTest( X_test, y_test, twoLayer )[0] / X_test.shape[0] * 100 )
+
+# %%
+N_INPUT = 28 * 28
+N_OUTPUT = 10
+epochs = 1  # How often the Training Set is iterated over, Set lower to save significant amount of time
+trials = 1  # Amount of different testRuns, set lower for maximum time saving
+
+# Function to create empty arrays - to save space below
+eA = lambda: [ [] for _ in range( len( activationFunctions ) ) ]
+
+# Create a dictionary with all the networks and activationFunctions
+oneLNacc = { 'hebb': eA(), 'deca': eA(), 'ojas': eA() }
+oneLNind = { 'hebb': eA(), 'deca': eA(), 'ojas': eA() }
+
+
+for trial in range( trials ):
+    print( f"Trial Number {trial + 1}" )
+    for i, aF in enumerate( activationFunctions ):
+        print( activationFunctionNames[i] )
+        # Initialize Networks
+        hebb = Layer( N_INPUT, N_OUTPUT, learning=r_hebb, activationFunction=aF )
+        deca = Layer( N_INPUT, N_OUTPUT, learning=r_decay, activationFunction=aF )
+        ojas = Layer( N_INPUT, N_OUTPUT, learning=r_ojas, activationFunction=aF)
+        # Run test before
+        hebb_pre_acc, hebb_pre_iWrong = runTest( X_test, y_test, hebb )
+        deca_pre_acc, deca_pre_iWrong = runTest( X_test, y_test, deca )
+        ojas_pre_acc, ojas_pre_iWrong = runTest( X_test, y_test, ojas )
+        # Train
+        print( "Hebb" )
+        np.random.seed( trial )
+        hebb.train( X_train, y_train, epochs=epochs, eta=0.1, seed=None )
+        print( "Decay" )
+        np.random.seed( trial )
+        deca.train( X_train, y_train, epochs=epochs, eta=0.1, seed=None )
+        print( "Oja")
+        np.random.seed( trial )
+        ojas.train( X_train, y_train, epochs=epochs, eta=0.1, seed=None )
+        # Run test after
+        hebb_post_acc, hebb_post_iWrong = runTest( X_test, y_test, hebb )
+        deca_post_acc, deca_post_iWrong = runTest( X_test, y_test, deca )
+        ojas_post_acc, ojas_post_iWrong = runTest( X_test, y_test, ojas )
+        # Save data in the dictionaries
+        oneLNacc['hebb'][i].append( hebb_post_acc / nTest )
+        oneLNind['hebb'][i].append( hebb_post_iWrong )
+        oneLNacc['deca'][i].append( deca_post_acc / nTest )
+        oneLNind['deca'][i].append( deca_post_iWrong )
+        oneLNacc['ojas'][i].append( ojas_post_acc / nTest )
+        oneLNind['ojas'][i].append( ojas_post_iWrong )
+
+
+print( "Done" )
 
 # %%
 N_INPUT = 28 * 28
