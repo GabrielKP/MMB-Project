@@ -641,87 +641,26 @@ learningRuleNames = ["Hebbian", "Decay", "Oja"]
 # %% [markdown]
 # ## Activation functions
 #
-# For correctness of the above mentioned learning rules a linear Neuron is assumed. But by abiding to certain rules, we can introduce nonlinear functions which may lead to interesting properties and potentially could improve the classification accuracy! (@todo: include citation of nonlinear Hebb networks with interesting properties (and check on them(?))
+# For correctness of the above mentioned learning rules a linear Neuron is assumed. To evaluate the output of all neurons, the output vector  of all activations $\mathbf{y}$ is fed through a softmax which converts them to a value between 0 and 1, so that they all sum together to 1.
 #
-# On another note, nonlinear activation functions are present in our human brain and thus a good argument to make our learning rules more biologically plausible (@todo: another citation needed).
-#
-# Below this section a visualization of the activation functions can be found.
-#
-# ### Linear
-#
-# This one is simple:
+# ### Linear activation function
 #
 # \begin{equation}
 #     f(x) = x
 # \end{equation}
 #
-# ### Simple threshhold
-#
-# The 'simple threshhold' simply classifies things into 0 or 1. Firing or not firing. (be warned: it does not seem to work at the moment)
-#
-# \begin{equation}
-#     f(x) =
-#     \begin{cases}
-#         1 &\text{if } x > 0.5 \\
-#         0 &\text{else}
-#     \end{cases}
-# \end{equation}
-#
-# ### Sigmoid
-#
-# The 'sigmoid' function squashes all outputs between 0 and 1 in a nonlinear way:
-#
-# \begin{equation}
-#     f(x) = \frac{1}{1 + e^{-x}}
-# \end{equation}
-#
-# ### ReLU
-#
-# 'ReLU' stands for 'Rectified Linear Unit'. For every $x$ below 0 the activation stays 0, above 0 it behaves like the linear activation function.
-#
-# \begin{equation}
-#     f(x) = \max{( 0, x )}
-# \end{equation}
-#
-# ### Activation functions in Python
-#
-# Also for the activation functions lambda functions are used. Importantly, the functions need to be able to handle vectors!
-
-# %%
-# Definition of activation functions
-linear = lambda x: x
-threshhold = lambda x: ( x > 0.5 ).astype( np.int )
-sigmoid = lambda x: ( 1 / ( 1 + np.exp( -x ) ) )
-relu = lambda x: np.maximum( 0, x )
-
-# Create an array of activation functions for later convenience
-# activationFunctions = [ linear, threshhold, sigmoid, relu ]
-# activationFunctionNames = [ "Linear", "Threshhold", "Sigmoid", "ReLU" ]
-activationFunctions = [ linear ]
-activationFunctionNames = [ "Linear" ]
-
-# %% [markdown]
-# Visualizing the activation functions:
-
-# %%
-test = np.linspace( -2, 2, 300 )
-plt.plot( test, linear( test ) )
-plt.plot( test, threshhold( test ) )
-plt.plot( test, sigmoid( test ) )
-plt.plot( test, relu( test ) )
-plt.legend( activationFunctionNames );
-
-# %% [markdown]
-# ## Softmax
-#
-# In the end the vector of all activations $\mathbf{y}$ is fed through a softmax which converts them to a value between 0 and 1, so that they all sum together to 1:
+# ### The Softmax
 #
 # \begin{equation}
 #     f(y_i) = \frac{e^{y_i}}{\sum_y e^{y}}
 # \end{equation}
 
 # %%
-# softmax = lambda x: np.exp( x ) / np.sum( np.exp(x), axis=0 )
+# Definition of linear activation function.
+linear = lambda x: x
+
+activationFunctions = [ linear ]
+activationFunctionNames = [ "Linear" ]
 
 # %% [markdown]
 # ## The Data
