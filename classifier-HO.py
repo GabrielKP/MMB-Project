@@ -378,9 +378,9 @@ def trainNewNetworksAndTest( X_train,
     for run in range( runs ):
         print( f"Run Number {run + 1}" )
         # Initialize Networks
-        hebb = Layer( N_INPUT, N_OUTPUT, learning=r_hebb, activationFunction=linear )
-        deca = Layer( N_INPUT, N_OUTPUT, learning=r_decay, activationFunction=linear )
-        ojas = Layer( N_INPUT, N_OUTPUT, learning=r_ojas, activationFunction=linear, normalize=True )
+        hebb = Layer( N_INPUT, N_OUTPUT, learning=r_hebb )
+        deca = Layer( N_INPUT, N_OUTPUT, learning=r_decay )
+        ojas = Layer( N_INPUT, N_OUTPUT, learning=r_ojas, normalize=True )
         # Train
         print( "Hebb" )
         np.random.seed( run )
@@ -752,10 +752,10 @@ xs = range( 1, epochs + 1 )
 
 for r in range( runs ):
     plt.subplot( int( runs / 2 ), 2, r + 1 )
-    plt.ylim( [0, 1] )
-    plt.plot( xs, valHistory['hebb'][0] )
-    plt.plot( xs, valHistory['deca'][0] )
-    plt.plot( xs, valHistory['ojas'][0] )
+    plt.ylim( [0, 100] )
+    plt.plot( xs, np.array( valHistory['hebb'][r] ) * 100 )
+    plt.plot( xs, np.array( valHistory['deca'][r] ) * 100 )
+    plt.plot( xs, np.array( valHistory['ojas'][r] ) * 100 )
     plt.title( f"Run {r}" )
 
     # Axes
