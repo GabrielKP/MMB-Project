@@ -564,7 +564,7 @@ def plotAccuracies( accs, learningRuleNames, title ):
     plt.figure( figsize=( 10, 7 ) )
     plt.title( title )
     plt.ylim( [0, 100] )
-    bWidth = 0.4
+    bWidth = 0.8
     xs = range( len( accs ) )
 
     percent = [ x * 100 for x in accs ]
@@ -627,6 +627,7 @@ r_ojas = lambda W, x, y, eta: W + eta * ( ( x - W * y[ :, None ] ) * y[ :, None 
 
 learningRules = ( r_hebb, r_decay, r_ojas, )
 learningRuleNames = ( "Hebbian", "Decay", "Oja", )
+lRs = { "Hebbian": r_hebb, "Decay": r_decay, "Oja": r_ojas }
 
 # %% [markdown]
 # ## Activation functions
@@ -807,10 +808,10 @@ plotAccuracies( [ accuracies['hebb'][run], accuracies['deca'][run], accuracies['
 # 1. The Oja network has the best accuracy
 # 2. The Hebbian network has a steady accuracy from the first epoch on
 # 3. The Hebbian and the Decay rule have difficulties classifying the 5.
-# 4. The Decay Rule works independent on
+# 4. The Decay Rule works shows great variability in classification accuracy on the validation set
 
 # %% [markdown]
-# The first observation is easily explained: Whereas the other rules have some sort of "forgetting" term, the plain Hebbian rule only adds input to expected output relations to the weights. Because these are independent on the current weights of the network, and because addition is associative, the order of training examples does not matter. This is also the reason the accuracy for the plain Hebbian network stays exactly the same through time, as after each epoch the weights just changed in the exact same proportions as in the epoch before.
+# The second observation is easily explained: Whereas the other rules have some sort of "forgetting" term, the plain Hebbian rule only adds input to expected output relations to the weights. Because these are independent on the current weights of the network, and because addition is associative, the order of training examples does not matter. This is also the reason the accuracy for the plain Hebbian network stays exactly the same through time, as after each epoch the weights just changed in the exact same proportions as in the epoch before.
 #
 # The second observation highly suggests that the deciding factor for classification accuracy is training order. But how does training order affect the classification accuracy?
 
@@ -891,7 +892,84 @@ plotAccuracies( [ accuraciesEven['hebb'][run], accuraciesEven['deca'][run], accu
 # %% [markdown]
 # ## Learning Speed Comparison
 #
-# gradually train network and test accuracy and then plot how quick they learn
+# Although the Oja network shows a better accuracy then the Hebbian network, the hebbian network performs at maximal classification accuracy just after one epoch. But how much faster exactly does the hebbian network learn?
+#
+# To answer the question an Ojas, Decay and Hebbian networks are trained in the same random order. To monitor their learning speed after every N steps they are tested on the test-dataset. The experiment is repeated 10 times and the results are averaged.
+
+# %%
+# WARNING: This may takes an hour of running time with current parameters!
+runs = 3
+N_INPUT = 28 * 28
+N_OUTPUT = 10
+eta=0.1
+decay=0.4
+N = 1000
+offset = X_train.shape[0] % N
+resultLength = int( X_train.shape[0] / N )
+
+# Result has shape (learningRules, runs, resultLength)
+results = { lR: [] for lR in lRs }
+for r in range( runs ):
+    print( f"Run {r}" )
+
+    # Init networks and result arraays
+    networks = dict()
+    for lR in lRs:
+        # Network
+        if lR == "Oja":
+            networks[lR] = Layer( N_INPUT, N_OUTPUT, learning=lRs[lR], normalize=True )
+        else:
+            networks[lR] = Layer( N_INPUT, N_OUTPUT, learning=lRs[lR] )
+        # Results
+        results[lR].append( np.zeros( resultLength ) )
+
+    # Train and test networks
+    rcount = 0
+    for i, idx in enumerate( np.random.permutation( X_train.shape[0] ) ):
+        for lR in lRs:
+            networks[lR].learn( X_train[idx], y_train[idx], eta=eta )
+        if ( ( i + offset ) % N == 0 ):
+            for lR in lRs:
+                results[lR][-1][rcount], _ = runTest( X_test, y_test, networks[lR] )
+            rcount += 1
+        if ( i % 5500 == 0 ):
+            print( "+", end="" )
+    print( "" )
+    eta *= 0.4
+
+# %%
+# Average results
+avgResults = dict()
+for lR in results:
+    avgResults[lR] = np.average( results[lR], axis=0 )
+
+
+# %%
+def plotLineGraph( dic, title, xlabel, ylabel, lRs, ticks=0, offset=0, ):
+    """
+    Takes dict as input, plots line graph
+    """
+    # Average Validation accuracy throughout epochs
+    plt.figure( figsize=( 10, 7 ) )
+    plt.title( title )
+    plt.ylim( [0, 100] )
+    xs = np.array( range( 0, len( list( dic.values() )[0] ) ) ) * ticks + offset
+
+    for lR in lRs:
+        plt.plot( xs, np.array( dic[lR] ) * 100 )
+
+    # Axes
+    plt.xlabel( xlabel )
+    plt.ylabel( ylabel )
+    plt.grid( True, axis="y" )
+
+    # Show offset value in xticks
+    c = plt.xticks()
+    print( c )
+    # Legend
+    plt.legend( lRs.keys() );
+
+plotLineGraph( avgResults, "Test Accuracy during one Epoch", "Training Examples", "Accuracy in %", lRs, N, offset )
 
 # %% [markdown]
 # # Stage 3: Comparison
