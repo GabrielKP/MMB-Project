@@ -15,44 +15,35 @@
 # ---
 
 # %% [markdown]
-# ## Todos
-#
-# @todo:
-# - x/X y/Y consistency
-# - Decaying Learning Rate
-# - Hebb Decay Rule should be included in title
-#
-# This draft is littered with @todos. It would be helpful to me if you let me know whether you think they are unnecessary or whether I have some I have overlooked.
-
-# %% [markdown]
 # AS.200.313, Models of Mind and Brain, Prof. Honey
 #
 # Project draft, Gabriel Kressin
 #
-# # How does a neural-network learning with Hebbs rule compare to a neural-network learning with Oja's rule regarding accuracy, learning speed and other features in a digit classification task?
+# # How does a neural-network learning with Hebbs rule compare to a neural-network learning with a Hebb-Decay rule and Oja's rule regarding accuracy, learning speed and other features in a digit classification task?
 #
-# This project builds and compares three networks featuring biologically plausible learning rules to classify digits from the MNIST 10-digit dataset (LeCun, Y., & Cortes, C., & Burges, C.J.C.). These networks only differ in their learning rule:
+# This project builds and compares three networks featuring biologically plausible learning rules to classify digits from the MNIST 10-digit dataset (LeCun, Y., & Cortes, C., & Burges, C.J.C.). How do these networks compare to each other regarding accuracy, learning speed and other features?
+#
+# The networks are built to classify 28x28 pixel images of handwritten digits correctly to a digit from 0 to 9 and only differ in their learning rule:
 #     
 #     1. Plain Hebbian rule. 
 #     2. Hebbian-Decay rule.
 #     3. Oja's learning rule.
 #
-# The networks are built to classify 28x28 pixel images of handwritten digits correctly to a digit from 0 to 9.
+#
 #
 # The project consists of 3 stages:
 #
 # #### Stage 1: Definition
-# First, the network, learning rules and activation functions are explained and defined. Additionally the data is loaded in and taken a look at.
+# First, the network and learning rules are explained and defined. Additionally the data is loaded in and taken a look at.
 #
-# #### Stage 2: Architecture
-# Second, the best architecture is explored by examining different combinations of hyperparameters such as amount of layers, hidden layer size and activation function. 
+# #### Stage 2: Training
+# Second, the networks are trained on the data and results are plotted. Based on the results additional investigations into training order, accuracy of specific numbers and learning speed are made.
 #
-# #### Stage 3: Comparison
-# Lastly, the three models are compared on following three criterias:
+# #### Stage 3: Conclusion
+# Finally, a conclusion is drawn based on the results and following thre criterias:
 # - Classification accuracy
 # - Learning speed
 # - Emerging other factors
-#
 
 # %% [markdown]
 # # Stage 1: Definition
@@ -237,16 +228,13 @@ class Layer():
         return self.aF( np.dot( self.weights, x ) )
 
 
-    def train( self, Xt, yt, X_val, y_val, epochs, eta, permute, seed=None, verbose=True, decay= ):
+    def train( self, Xt, yt, X_val, y_val, epochs, eta, permute, verbose=True, decay=1 ):
         """
         Trains the neural network on training set for given epochs
         Returns history of training accuracy over validation set for each epoch
         """
         assert Xt.shape[0] == yt.shape[0], "X shape does not match y shape!"
         assert X_val.shape[0] == y_val.shape[0], "X shape does not match y shape (Val Data)!"
-
-        # Set seed
-        np.random.seed( seed )
         
         hist = []
 
@@ -264,7 +252,9 @@ class Layer():
             correct, _ = runTest( X_val, y_val, self )
             hist.append( correct )
             if verbose:
-                print( f"Val: {correct:.4f}" )
+                print( f"Val: {correct:.4f} Eta: {eta}" )
+
+            eta *= decay
                 
         return hist
 
@@ -357,6 +347,7 @@ def trainNewNetworksAndTest( X_train,
                             y_test,
                             epochs,
                             runs,
+                            decay=1,
                             permute=True,
                             N_INPUT=28*28,
                             N_OUTPUT=10,
@@ -375,6 +366,7 @@ def trainNewNetworksAndTest( X_train,
     y_val: Validation labels
     X_test: Testing data
     y_test: Tesing labels
+    decay: Decay learning coefficient eta by this rate, set to 1 for no decay
     epochs: Amount of iterations through testset for a single network
     runs: Divisible by 2, Amount of different testruns for each network
     N_INPUT: input number of neurons
@@ -393,17 +385,17 @@ def trainNewNetworksAndTest( X_train,
         # Initialize Networks
         hebb = Layer( N_INPUT, N_OUTPUT, learning=r_hebb, activationFunction=linear )
         deca = Layer( N_INPUT, N_OUTPUT, learning=r_decay, activationFunction=linear )
-        ojas = Layer( N_INPUT, N_OUTPUT, learning=r_ojas, activationFunction=linear )
+        ojas = Layer( N_INPUT, N_OUTPUT, learning=r_ojas, activationFunction=linear, normalize=True )
         # Train
         print( "Hebb" )
         np.random.seed( run )
-        hisHebb = hebb.train( X_train, y_train, X_val, y_val, permute=permute, epochs=epochs, eta=eta, seed=None, verbose=verbose )
+        hisHebb = hebb.train( X_train, y_train, X_val, y_val, decay=decay, permute=permute, epochs=epochs, eta=eta, verbose=verbose )
         print( "Decay" )
         np.random.seed( run )
-        hisDeca = deca.train( X_train, y_train, X_val, y_val, permute=permute, epochs=epochs, eta=eta, seed=None, verbose=verbose )
+        hisDeca = deca.train( X_train, y_train, X_val, y_val, decay=decay, permute=permute, epochs=epochs, eta=eta, verbose=verbose )
         print( "Oja")
         np.random.seed( run )
-        hisOjas = ojas.train( X_train, y_train, X_val, y_val, permute=permute, epochs=epochs, eta=eta, seed=None, verbose=verbose )
+        hisOjas = ojas.train( X_train, y_train, X_val, y_val, decay=decay, permute=permute, epochs=epochs, eta=eta, verbose=verbose )
         # Run test after training
         hebb_post_acc, hebb_post_iWrong = runTest( X_test, y_test, hebb )
         deca_post_acc, deca_post_iWrong = runTest( X_test, y_test, deca )
@@ -538,9 +530,9 @@ def plotNumberAccFromWrong( y, wrongHebb, wrongDeca, wrongOjas, title ):
     """
     Plots a bar graph with labels on x axis and accuracy on y axis with bars for all learning rules
     """
-    percentHebb = computeAccPerLabel( y, wrongHebb )
-    percentDeca = computeAccPerLabel( y, wrongDeca )
-    percentOjas = computeAccPerLabel( y, wrongOjas )
+    percentHebb = computeAccPerLabel( y, wrongHebb ) * 100
+    percentDeca = computeAccPerLabel( y, wrongDeca ) * 100
+    percentOjas = computeAccPerLabel( y, wrongOjas ) * 100
 
     width = 1
     bins = np.array( range(11) )
@@ -549,7 +541,7 @@ def plotNumberAccFromWrong( y, wrongHebb, wrongDeca, wrongOjas, title ):
     ax.bar( bins[:-1] * 4, percentHebb, width=width )
     ax.bar( bins[:-1] * 4 + width, percentDeca, width=width )
     ax.bar( bins[:-1] * 4 + width * 2, percentOjas, width=width )
-    ax.set_ylim( [0, 1.15] )
+    ax.set_ylim( [0, 115] )
 
     # axis labels
     ax.set_ylabel( "Accuracy in %" )
@@ -561,7 +553,7 @@ def plotNumberAccFromWrong( y, wrongHebb, wrongDeca, wrongOjas, title ):
 
     # numbers above bars
     offsetx = -0.2
-    offsety = 0.03
+    offsety = 1.5
     for i, v in enumerate( percentHebb ):
         plt.text( bins[i] * 4 + offsetx, v + offsety, f"{v:.2f}%", rotation=90, fontsize=9 )
     for i, v in enumerate( percentDeca ):
@@ -576,11 +568,12 @@ def plotNumberAccFromWrong( y, wrongHebb, wrongDeca, wrongOjas, title ):
 def plotAccuracies( accs, learningRuleNames, title ):
     plt.figure( figsize=( 10, 7 ) )
     plt.title( title )
-    plt.ylim( [0, 1] )
+    plt.ylim( [0, 100] )
     xs = range( len( accs ) )
 
+    percent = [ x * 100 for x in accs ]
     # plot the bars
-    bars = plt.bar( xs, accs, width=bWidth, align='center' )
+    bars = plt.bar( xs, percent , width=bWidth, align='center' )
 
     # Colors
     bars[1].set_color( 'orange' )
@@ -592,8 +585,8 @@ def plotAccuracies( accs, learningRuleNames, title ):
     plt.ylabel( 'Accuracy in %' )
 
     # numbers above bars
-    for i, v in enumerate( accs ):
-        plt.text( xs[i] - 0.09, v + 0.03, f"{v:.4f}%" )
+    for i, v in enumerate( percent ):
+        plt.text( xs[i] - 0.09, v + 0.7, f"{v:.2f}%" )
 
 
 # %% [markdown]
@@ -707,7 +700,7 @@ plotData( X_val, y_val, 20 )
 plotData( X_test, y_test, 20 )
 
 # %% [markdown]
-# The numbers are distributed as follows for both sets:
+# The numbers are distributed as follows for all data sets:
 
 # %%
 plotDistribution( y_test, "Test data distribution" )
@@ -715,17 +708,17 @@ plotDistribution( y_val, "Validation data distribution" )
 plotDistribution( y_train, "Train data distribution" )
 
 # %% [markdown]
-# # Stage 2: Architecture
+# # Stage 2: Training
 #
 # In this section the three networks are trained.
 
 # %% [markdown]
-# ### Trial 1
+# ### First training
 #
-# First, we go through one single Trial in which all three networks are trained 10 times on 10 epochs:
+# First, the three networks are initialized to weights of 0, and trained on all on the same random permutations of the training data for 10 epochs in 10 different runs. I found that the performance was best with a learning rate of 0.1 and a decay rate for 0.4. Be warned, training may take some time. Furthermore there is a runtime warning which does not affect the outcome of the training.
 
 # %%
-epochs = 3
+epochs = 10
 runs = 4
 accuracies, wrongIndices, valHistory = trainNewNetworksAndTest( X_train,
                                                                y_train,
@@ -734,7 +727,9 @@ accuracies, wrongIndices, valHistory = trainNewNetworksAndTest( X_train,
                                                                X_test,
                                                                y_test,
                                                                epochs,
-                                                               runs
+                                                               runs,
+                                                               eta=0.1,
+                                                               decay=0.4
                                                               )
 
 # %% [markdown]
@@ -750,6 +745,8 @@ for network in accuracies.keys():
 avgValHis = dict()
 for network in valHistory.keys():
     avgValHis[network] = np.average( valHistory[network], axis=0 )
+    
+# Average 
 
 # %% [markdown]
 # ...and then visualized:
@@ -818,7 +815,7 @@ plotAccuracies( [ accuracies['hebb'][run], accuracies['deca'][run], accuracies['
 # 1. The Hebbian network is steady from the first epoch on
 # 2. The amount of epochs does not seem to influence the Accuracy Decay or Oja network overall
 # 3. The Hebbian network seems to be significantly better than the other 2, which seem to have similar accuracies.
-# 4. All networks are incredibly bad at classifying the 5
+# 4. The Hebbian and the Decay rule have difficulties classifying the 5.
 
 # %% [markdown]
 # The first observation is easily explained: Whereas the other rules have some sort of "forgetting" term, the plain Hebbian rule only adds input to expected output relations to the weights. Because these are independent on the current weights of the network, and because addition is associative, the order of training examples does not matter. This is also the reason the accuracy for the plain Hebbian network stays exactly the same through time, as after each epoch the weights just changed in the exact same proportions as in the epoch before.
@@ -859,7 +856,6 @@ while i < X_train.shape[0]:
             y_trainEven[i] = numsLabels[c][numIdx]
             i += 1
     numIdx += 1
-print( i )
 
 # Reverse so that uneven "excess" numbers are at the beginning
 X_trainEven = np.flip( X_trainEven, axis=0 )
@@ -875,10 +871,12 @@ accuraciesEven, wrongIndicesEven, valHistoryEven = trainNewNetworksAndTest( X_tr
                                                                            y_val,
                                                                            X_test,
                                                                            y_test,
-                                                                           3,
-                                                                           3,
+                                                                           epochs=10,
+                                                                           runs=3,
                                                                            permute=False,
+                                                                           decay=0.5
                                                                           )
+
 run = 0
 plotNumberAccFromWrong( y_test,
                        wrongIndicesEven['hebb'][run],
@@ -896,6 +894,11 @@ plotAccuracies( [ accuraciesEven['hebb'][run], accuraciesEven['deca'][run], accu
 #
 # Which labels does the 5 get?
 # Visualization of weights
+
+# %% [markdown]
+# ## Learning Speed Comparison
+#
+# gradually train network and test accuracy and then plot how quick they learn
 
 # %% [markdown]
 # # Stage 3: Comparison
