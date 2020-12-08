@@ -564,6 +564,7 @@ def plotAccuracies( accs, learningRuleNames, title ):
     plt.figure( figsize=( 10, 7 ) )
     plt.title( title )
     plt.ylim( [0, 100] )
+    bWidth = 0.4
     xs = range( len( accs ) )
 
     percent = [ x * 100 for x in accs ]
