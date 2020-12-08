@@ -30,7 +30,6 @@
 #     3. Oja's learning rule.
 #
 #
-#
 # The project consists of 3 stages:
 #
 # #### Stage 1: Definition
@@ -77,9 +76,6 @@
 # Furthermore, the cell below features all of the functions used in the project.
 #
 # To load the project properly you will need to have matplotlib, numpy and pandas installed.
-
-# %%
-np.argmax( [0,1,2,6,0] )
 
 # %%
 # %matplotlib inline
@@ -158,7 +154,7 @@ class Layer():
         """
         nInputs: amount of input neurons to layer
         nNeurons: amount of neurons in layer (==outputs)
-        activationFunction: potentially nonlinear function for the activation of the neuron: standard: 0 Threshhold
+        activationFunction: potentially nonlinear function for the activation of the neuron: standard: linear Neuron
         learning: learning Rule for Layers, standard: is simple Hebbian
         random: initialize weights randomly - will normalize weights to 1, standard: False
         normalize: should weights be normalized after every learning step, standard: False
@@ -345,15 +341,13 @@ def trainNewNetworksAndTest( X_train,
                             y_val,
                             X_test,
                             y_test,
-                            epochs,
                             runs,
+                            epochs,
+                            learningRules,
                             decay=1,
                             permute=True,
                             N_INPUT=28*28,
                             N_OUTPUT=10,
-                            r_hebb=r_hebb,
-                            r_decay=r_decay,
-                            r_ojas=r_ojas,
                             eta=0.1,
                             verbose=True
                            ):
@@ -367,13 +361,14 @@ def trainNewNetworksAndTest( X_train,
     X_test: Testing data
     y_test: Tesing labels
     decay: Decay learning coefficient eta by this rate, set to 1 for no decay
-    epochs: Amount of iterations through testset for a single network
     runs: Divisible by 2, Amount of different testruns for each network
+    epochs: Amount of iterations through testset for a single network
+    learningRules: 3 learning rules to be used
     N_INPUT: input number of neurons
     N_OUTPUT: output number of neurons
-    r_*: learning rules
     eta: learning rate
     """
+    r_hebb, r_decay, r_ojas = learningRules
     # Create a dictionaries with all the networks and activationFunctions
     accuracies = { 'hebb': [], 'deca': [], 'ojas': [] }
     wrongIndices = { 'hebb': [], 'deca': [], 'ojas': [] }
@@ -629,31 +624,25 @@ r_hebb = lambda W, x, y, eta: W + eta * np.outer( y, x.T )
 r_decay = lambda W, x, y, eta: W + eta * ( ( x - W ) * y[ :, None ] )
 r_ojas = lambda W, x, y, eta: W + eta * ( ( x - W * y[ :, None ] ) * y[ :, None ] )
 
-learningRuleNames = ["Hebbian", "Decay", "Oja"]
+learningRules = ( r_hebb, r_decay, r_ojas, )
+learningRuleNames = ( "Hebbian", "Decay", "Oja", )
 
 # %% [markdown]
 # ## Activation functions
 #
 # For correctness of the above mentioned learning rules a linear Neuron is assumed. To evaluate the output of all neurons, the output vector  of all activations $\mathbf{y}$ is fed through a softmax which converts them to a value between 0 and 1, so that they all sum together to 1.
 #
-# ### Linear activation function
+# #### Linear activation function
 #
 # \begin{equation}
 #     f(x) = x
 # \end{equation}
 #
-# ### The Softmax
+# #### The Softmax
 #
 # \begin{equation}
 #     f(y_i) = \frac{e^{y_i}}{\sum_y e^{y}}
 # \end{equation}
-
-# %%
-# Definition of linear activation function.
-linear = lambda x: x
-
-activationFunctions = [ linear ]
-activationFunctionNames = [ "Linear" ]
 
 # %% [markdown]
 # ## The Data
@@ -726,8 +715,9 @@ accuracies, wrongIndices, valHistory = trainNewNetworksAndTest( X_train,
                                                                y_val,
                                                                X_test,
                                                                y_test,
-                                                               epochs,
                                                                runs,
+                                                               epochs,
+                                                               learningRules,
                                                                eta=0.1,
                                                                decay=0.4
                                                               )
@@ -758,7 +748,7 @@ plotAccuracies( avgAccs.values(), learningRuleNames, f"Average classification ac
 # %%
 # Run Validation accuracy throughout epochs
 plt.figure( figsize=( 15, 10 ) )
-xs = range( epochs )
+xs = range( 1, epochs + 1 )
 
 for r in range( runs ):
     plt.subplot( int( runs / 2 ), 2, r + 1 )
@@ -783,7 +773,7 @@ plt.tight_layout();
 plt.figure( figsize=( 10, 7 ) )
 plt.title( "Average classification Accuracy on Validation Data by epoch" )
 plt.ylim( [0, 1] )
-xs = range( epochs )
+xs = range( 1, epochs + 1 )
 
 plt.plot( xs, avgValHis['hebb'] )
 plt.plot( xs, avgValHis['deca'] )
@@ -809,13 +799,14 @@ plotAccuracies( [ accuracies['hebb'][run], accuracies['deca'][run], accuracies['
                learningRuleNames,
                f"Accuracy of Networks in Run {run}"
               )
+# @todo avergae
 
 # %% [markdown]
 # There are some interesting observations for these results:
-# 1. The Hebbian network is steady from the first epoch on
-# 2. The amount of epochs does not seem to influence the Accuracy Decay or Oja network overall
-# 3. The Hebbian network seems to be significantly better than the other 2, which seem to have similar accuracies.
-# 4. The Hebbian and the Decay rule have difficulties classifying the 5.
+# 1. The Oja network has the best accuracy
+# 2. The Hebbian network has a steady accuracy from the first epoch on
+# 3. The Hebbian and the Decay rule have difficulties classifying the 5.
+# 4. The Decay Rule works independent on
 
 # %% [markdown]
 # The first observation is easily explained: Whereas the other rules have some sort of "forgetting" term, the plain Hebbian rule only adds input to expected output relations to the weights. Because these are independent on the current weights of the network, and because addition is associative, the order of training examples does not matter. This is also the reason the accuracy for the plain Hebbian network stays exactly the same through time, as after each epoch the weights just changed in the exact same proportions as in the epoch before.
@@ -834,7 +825,7 @@ plotAccuracies( [ accuracies['hebb'][run], accuracies['deca'][run], accuracies['
 # 4. 
 
 # %%
-# Get all different numbers
+# Split testset into different numbers
 numsData = []
 numsLabels = []
 dig = asDigits( y_train )
@@ -871,10 +862,11 @@ accuraciesEven, wrongIndicesEven, valHistoryEven = trainNewNetworksAndTest( X_tr
                                                                            y_val,
                                                                            X_test,
                                                                            y_test,
-                                                                           epochs=10,
-                                                                           runs=3,
+                                                                           runs=10,
+                                                                           epochs=3,
                                                                            permute=False,
-                                                                           decay=0.5
+                                                                           eta=0.1,
+                                                                           decay=0.4
                                                                           )
 
 run = 0
