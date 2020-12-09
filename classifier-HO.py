@@ -905,11 +905,13 @@ runs = 1
 epochs = 3
 N_INPUT = 28 * 28
 N_OUTPUT = 10
-eta=0.1
-decay=0.4
+eta=0.001
+decay=1
 N = 1000
 offset = X_train.shape[0] % N
 resultLength = int( X_train.shape[0] / N )
+
+y_testDigits = asDigits( y_test )
 
 # Result has shape (learningRules, runs, resultLength)
 results = { lR: [] for lR in lRs }
@@ -937,7 +939,7 @@ for r in range( runs ):
                 networks[lR].learn( X_train[idx], y_train[idx], eta=eta )
             if ( ( i + offset ) % N == 0 ):
                 for lR in lRs:
-                    results[lR][-1][rcount], _ = runTest( X_test, y_test, networks[lR] )
+                    results[lR][-1][rcount], _ = runTest( X_test, y_test, networks[lR], y_testDigits )
                 xs[rcount] = ( X_train.shape[0] * e ) + i
                 rcount += 1
             if ( i % 5500 == 0 ):
@@ -992,10 +994,10 @@ plt.legend( loc='lower right' );
 runs = 1
 N_INPUT = 28 * 28
 N_OUTPUT = 10
-eta=0.1
-decay=0.4
+eta=0.001
+decay=0.9
 N_data = 1000
-N = 5
+N = 20
 resultLength = int( N_data / N )
 
 # Result has shape (learningRules, runs, resultLength)
@@ -1022,7 +1024,7 @@ for r in range( runs ):
             networks[lR].learn( X_train[idx], y_train[idx], eta=eta )
         if ( i % N == 0 ):
             for lR in lRs:
-                results1000[lR][-1][rcount], _ = runTest( X_test, y_test, networks[lR] )
+                results1000[lR][-1][rcount], _ = runTest( X_test, y_test, networks[lR], y_testDigits )
             xs1000[rcount] = i
             rcount += 1
         if ( i % 100 == 0 ):
