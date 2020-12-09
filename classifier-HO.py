@@ -106,7 +106,7 @@ def softmax( x ):
     return np.exp( xrel ) / np.sum( np.exp( xrel ), axis=0 )
 
 
-def runTest( X, y, network ):
+def runTest( X, y, network, convertedy=None ):
     """
     Computes for given X and y data the amount of correct predictions by the given network.
     Requires the predictions being higher then 0.
@@ -116,7 +116,10 @@ def runTest( X, y, network ):
     assert X.shape[0] == y.shape[0], "X shape does not match y shape!"
 
     # Convert Labels into digits
-    y = asDigits( y )
+    if convertedy is None:
+        y = asDigits( y )
+    else:
+        y = convertedy
 
     # Compute predictions
     preds = np.empty( y.shape )
@@ -898,7 +901,8 @@ plotAccuracies( [ accuraciesEven['hebb'][run], accuraciesEven['deca'][run], accu
 
 # %%
 # WARNING: This may takes an hour of running time with current parameters!
-runs = 3
+runs = 1
+epochs = 3
 N_INPUT = 28 * 28
 N_OUTPUT = 10
 eta=0.1
@@ -921,21 +925,25 @@ for r in range( runs ):
         else:
             networks[lR] = Layer( N_INPUT, N_OUTPUT, learning=lRs[lR] )
         # Results
-        results[lR].append( np.zeros( resultLength ) )
+        results[lR].append( np.zeros( resultLength * epochs + 1 ) )
+        xs = [0] * ( resultLength * epochs + 1 )
 
     # Train and test networks
-    rcount = 0
-    for i, idx in enumerate( np.random.permutation( X_train.shape[0] ) ):
-        for lR in lRs:
-            networks[lR].learn( X_train[idx], y_train[idx], eta=eta )
-        if ( ( i + offset ) % N == 0 ):
+    rcount = 1
+    for e in range( epochs ):
+        print( f"--Epoch {e + 1}" )
+        for i, idx in enumerate( np.random.permutation( X_train.shape[0] ) ):
             for lR in lRs:
-                results[lR][-1][rcount], _ = runTest( X_test, y_test, networks[lR] )
-            rcount += 1
-        if ( i % 5500 == 0 ):
-            print( "+", end="" )
-    print( "" )
-    eta *= 0.4
+                networks[lR].learn( X_train[idx], y_train[idx], eta=eta )
+            if ( ( i + offset ) % N == 0 ):
+                for lR in lRs:
+                    results[lR][-1][rcount], _ = runTest( X_test, y_test, networks[lR] )
+                xs[rcount] = ( X_train.shape[0] * e ) + i
+                rcount += 1
+            if ( i % 5500 == 0 ):
+                print( "+", end="" )
+        print( "" )
+        eta *= 0.4
 
 # %%
 # Average results
@@ -945,7 +953,7 @@ for lR in results:
 
 
 # %%
-def plotLineGraph( dic, title, xlabel, ylabel, lRs, ticks=0, offset=0, ):
+def plotLineGraph( dic, title, xlabel, ylabel, lRs, ticks=0, offset=0, xs=None, legend=True ):
     """
     Takes dict as input, plots line graph
     """
@@ -953,23 +961,82 @@ def plotLineGraph( dic, title, xlabel, ylabel, lRs, ticks=0, offset=0, ):
     plt.figure( figsize=( 10, 7 ) )
     plt.title( title )
     plt.ylim( [0, 100] )
-    xs = np.array( range( 0, len( list( dic.values() )[0] ) ) ) * ticks + offset
+    if xs is None:
+        xs = np.array( range( 0, len( list( dic.values() )[0] ) ) ) * ticks + offset
 
     for lR in lRs:
-        plt.plot( xs, np.array( dic[lR] ) * 100 )
+        plt.plot( xs, np.array( dic[lR] ) * 100, label=lR )
 
     # Axes
     plt.xlabel( xlabel )
     plt.ylabel( ylabel )
     plt.grid( True, axis="y" )
 
-    # Show offset value in xticks
-    c = plt.xticks()
-    print( c )
     # Legend
-    plt.legend( lRs.keys() );
+    if legend:
+        plt.legend( lRs.keys() );
 
-plotLineGraph( avgResults, "Test Accuracy during one Epoch", "Training Examples", "Accuracy in %", lRs, N, offset )
+plotLineGraph( avgResults, "Test Accuracy during one Epoch", "Training Examples", "Accuracy in %", lRs, N, offset, xs, False )
+plt.vlines( 0, 0, 100, color="grey", label="Start Epoch 1" )
+plt.vlines( X_train.shape[0], 0, 100, color="grey", label="Start Epoch 2" )
+plt.vlines( X_train.shape[0] * 2, 0, 100, color="grey", label="Start Epoch 3" )
+plt.legend( loc='lower right' );
+
+# %% [markdown]
+# This result was quite surprising to me, it shows that the Oja and Decay network almost instantly have quite a high  accuracy and then just oscillate strongly. Only after a new epoch starts and the learning rate decreases the networks become better at classifying.
+#
+# To observe better how fast the Decay and Oja network learn, a closer look at the first 1000 training examples and the classification accuracy is taken.
+
+# %%
+# WARNING: This may takes an hour of running time with current parameters!
+runs = 1
+N_INPUT = 28 * 28
+N_OUTPUT = 10
+eta=0.1
+decay=0.4
+N_data = 1000
+N = 5
+resultLength = int( N_data / N )
+
+# Result has shape (learningRules, runs, resultLength)
+results1000 = { lR: [] for lR in lRs }
+for r in range( runs ):
+    print( f"Run {r}" )
+
+    # Init networks and result arraays
+    networks = dict()
+    for lR in lRs:
+        # Network
+        if lR == "Oja":
+            networks[lR] = Layer( N_INPUT, N_OUTPUT, learning=lRs[lR], normalize=True )
+        else:
+            networks[lR] = Layer( N_INPUT, N_OUTPUT, learning=lRs[lR] )
+        # Results
+        results1000[lR].append( np.zeros( resultLength + 1 ) )
+        xs1000 = [0] * ( resultLength + 1 )
+
+    # Train and test networks
+    rcount = 1
+    for i, idx in enumerate( np.random.permutation( X_train.shape[0] )[:N_data] ):
+        for lR in lRs:
+            networks[lR].learn( X_train[idx], y_train[idx], eta=eta )
+        if ( i % N == 0 ):
+            for lR in lRs:
+                results1000[lR][-1][rcount], _ = runTest( X_test, y_test, networks[lR] )
+            xs1000[rcount] = i
+            rcount += 1
+        if ( i % 100 == 0 ):
+            print( "+", end="" )
+    print( "" )
+
+# %%
+# Average results
+avgResults1000 = dict()
+for lR in results1000:
+    avgResults1000[lR] = np.average( results1000[lR], axis=0 )
+
+# %%
+plotLineGraph( avgResults1000, "Test Accuracy during one Epoch", "Training Examples", "Accuracy in %", lRs, N, offset=0, xs=xs1000 )
 
 # %% [markdown]
 # # Stage 3: Comparison
