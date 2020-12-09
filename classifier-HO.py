@@ -740,8 +740,6 @@ for network in accuracies.keys():
 avgValHis = dict()
 for network in valHistory.keys():
     avgValHis[network] = np.average( valHistory[network], axis=0 )
-    
-# Average 
 
 # %% [markdown]
 # ...and then visualized:
@@ -819,6 +817,159 @@ plotAccuracies( [ accuracies['hebb'][run], accuracies['deca'][run], accuracies['
 # The second observation highly suggests that the deciding factor for classification accuracy is training order. But how does training order affect the classification accuracy?
 
 # %% [markdown]
+# ## Learning Speed Comparison
+#
+# Although the Oja network shows a better accuracy then the Hebbian network, the hebbian network performs at maximal classification accuracy just after one epoch. But how much faster exactly does the hebbian network learn?
+#
+# To answer the question an Ojas, Decay and Hebbian networks are trained in the same random order. To monitor their learning speed after every N steps they are tested on the test-dataset. The experiment is repeated 10 times and the results are averaged.
+
+# %%
+# WARNING: This may takes an hour of running time with current parameters!
+runs = 1
+epochs = 3
+N_INPUT = 28 * 28
+N_OUTPUT = 10
+eta=0.001
+decay=1
+N = 1000
+offset = X_train.shape[0] % N
+resultLength = int( X_train.shape[0] / N )
+
+y_testDigits = asDigits( y_test )
+
+# Result has shape (learningRules, runs, resultLength)
+results = { lR: [] for lR in lRs }
+for r in range( runs ):
+    print( f"Run {r}" )
+
+    # Init networks and result arraays
+    networks = dict()
+    for lR in lRs:
+        # Network
+        if lR == "Oja":
+            networks[lR] = Layer( N_INPUT, N_OUTPUT, learning=lRs[lR], normalize=True )
+        else:
+            networks[lR] = Layer( N_INPUT, N_OUTPUT, learning=lRs[lR] )
+        # Results
+        results[lR].append( np.zeros( resultLength * epochs + 1 ) )
+        xs = [0] * ( resultLength * epochs + 1 )
+
+    # Train and test networks
+    rcount = 1
+    for e in range( epochs ):
+        print( f"--Epoch {e + 1}" )
+        for i, idx in enumerate( np.random.permutation( X_train.shape[0] ) ):
+            for lR in lRs:
+                networks[lR].learn( X_train[idx], y_train[idx], eta=eta )
+            if ( ( i + offset ) % N == 0 ):
+                for lR in lRs:
+                    results[lR][-1][rcount], _ = runTest( X_test, y_test, networks[lR], y_testDigits )
+                xs[rcount] = ( X_train.shape[0] * e ) + i
+                rcount += 1
+            if ( i % 5500 == 0 ):
+                print( "+", end="" )
+        print( "" )
+        eta *= decay
+
+# %%
+# Average results
+avgResults = dict()
+for lR in results:
+    avgResults[lR] = np.average( results[lR], axis=0 )
+
+
+# %%
+def plotLineGraph( dic, title, xlabel, ylabel, lRs, ticks=0, offset=0, xs=None, legend=True ):
+    """
+    Takes dict as input, plots line graph
+    """
+    # Average Validation accuracy throughout epochs
+    plt.figure( figsize=( 10, 7 ) )
+    plt.title( title )
+    plt.ylim( [0, 100] )
+    if xs is None:
+        xs = np.array( range( 0, len( list( dic.values() )[0] ) ) ) * ticks + offset
+
+    for lR in lRs:
+        plt.plot( xs, np.array( dic[lR] ) * 100, label=lR )
+
+    # Axes
+    plt.xlabel( xlabel )
+    plt.ylabel( ylabel )
+    plt.grid( True, axis="y" )
+
+    # Legend
+    if legend:
+        plt.legend( lRs.keys() );
+
+plotLineGraph( avgResults, "Test Accuracy during one Epoch", "Training Examples", "Accuracy in %", lRs, N, offset, xs, False )
+plt.vlines( 0, 0, 100, color="grey", label="Start Epoch 1" )
+plt.vlines( X_train.shape[0], 0, 100, color="grey", label="Start Epoch 2" )
+plt.vlines( X_train.shape[0] * 2, 0, 100, color="grey", label="Start Epoch 3" )
+plt.legend( loc='lower right' );
+
+# %% [markdown]
+# This result was quite surprising to me, it shows that the Oja and Decay network almost instantly have quite a high  accuracy and then just oscillate strongly. Only after a new epoch starts and the learning rate decreases the networks become better at classifying.
+#
+# To observe better how fast the Decay and Oja network learn, a closer look at the first 1000 training examples and the classification accuracy is taken.
+
+# %%
+# WARNING: This may takes an hour of running time with current parameters!
+runs = 1
+N_INPUT = 28 * 28
+N_OUTPUT = 10
+eta=0.0005
+N_data = 40000
+N = 4000
+resultLength = int( N_data / N )
+
+# Result has shape (learningRules, runs, resultLength)
+results1000 = { lR: [] for lR in lRs }
+for r in range( runs ):
+    print( f"Run {r}" )
+
+    # Init networks and result arraays
+    networks = dict()
+    for lR in lRs:
+        # Network
+        if lR == "Oja":
+            networks[lR] = Layer( N_INPUT, N_OUTPUT, learning=lRs[lR], normalize=True )
+        else:
+            networks[lR] = Layer( N_INPUT, N_OUTPUT, learning=lRs[lR] )
+        # Results
+        results1000[lR].append( np.zeros( resultLength + 1 ) )
+        xs1000 = [0] * ( resultLength + 1 )
+
+    # Train and test networks
+    rcount = 1
+    for i, idx in enumerate( np.random.permutation( X_train.shape[0] )[:N_data] ):
+        for lR in lRs:
+            networks[lR].learn( X_train[idx], y_train[idx], eta=eta )
+        if ( i % N == 0 ):
+            for lR in lRs:
+                results1000[lR][-1][rcount], _ = runTest( X_test, y_test, networks[lR], y_testDigits )
+            xs1000[rcount] = i
+            rcount += 1
+        if ( i % ( N_data // 10 ) == 0 ):
+            print( "+", end="" )
+    print( "" )
+
+# %%
+# Average results
+avgResults1000 = dict()
+for lR in results1000:
+    avgResults1000[lR] = np.average( results1000[lR], axis=0 )
+
+# %%
+plotLineGraph( avgResults1000, "Test Accuracy during one Epoch", "Training Examples", "Accuracy in %", lRs, N, offset=0, xs=xs1000 )
+
+# %%
+# Include Learning Rate exploration graph
+
+# %% [markdown]
+# It becomes evident that the Ojas Network outperforms both other networks significantly and from the get-go.
+
+# %% [markdown]
 # ### The effect of training order on classification accuracy
 #
 # If training order is the
@@ -890,155 +1041,9 @@ plotAccuracies( [ accuraciesEven['hebb'][run], accuraciesEven['deca'][run], accu
 # ### Why do the networks struggle with the 5?
 #
 # Which labels does the 5 get?
+
+# %%
 # Visualization of weights
-
-# %% [markdown]
-# ## Learning Speed Comparison
-#
-# Although the Oja network shows a better accuracy then the Hebbian network, the hebbian network performs at maximal classification accuracy just after one epoch. But how much faster exactly does the hebbian network learn?
-#
-# To answer the question an Ojas, Decay and Hebbian networks are trained in the same random order. To monitor their learning speed after every N steps they are tested on the test-dataset. The experiment is repeated 10 times and the results are averaged.
-
-# %%
-# WARNING: This may takes an hour of running time with current parameters!
-runs = 1
-epochs = 3
-N_INPUT = 28 * 28
-N_OUTPUT = 10
-eta=0.001
-decay=1
-N = 1000
-offset = X_train.shape[0] % N
-resultLength = int( X_train.shape[0] / N )
-
-y_testDigits = asDigits( y_test )
-
-# Result has shape (learningRules, runs, resultLength)
-results = { lR: [] for lR in lRs }
-for r in range( runs ):
-    print( f"Run {r}" )
-
-    # Init networks and result arraays
-    networks = dict()
-    for lR in lRs:
-        # Network
-        if lR == "Oja":
-            networks[lR] = Layer( N_INPUT, N_OUTPUT, learning=lRs[lR], normalize=True )
-        else:
-            networks[lR] = Layer( N_INPUT, N_OUTPUT, learning=lRs[lR] )
-        # Results
-        results[lR].append( np.zeros( resultLength * epochs + 1 ) )
-        xs = [0] * ( resultLength * epochs + 1 )
-
-    # Train and test networks
-    rcount = 1
-    for e in range( epochs ):
-        print( f"--Epoch {e + 1}" )
-        for i, idx in enumerate( np.random.permutation( X_train.shape[0] ) ):
-            for lR in lRs:
-                networks[lR].learn( X_train[idx], y_train[idx], eta=eta )
-            if ( ( i + offset ) % N == 0 ):
-                for lR in lRs:
-                    results[lR][-1][rcount], _ = runTest( X_test, y_test, networks[lR], y_testDigits )
-                xs[rcount] = ( X_train.shape[0] * e ) + i
-                rcount += 1
-            if ( i % 5500 == 0 ):
-                print( "+", end="" )
-        print( "" )
-        eta *= 0.4
-
-# %%
-# Average results
-avgResults = dict()
-for lR in results:
-    avgResults[lR] = np.average( results[lR], axis=0 )
-
-
-# %%
-def plotLineGraph( dic, title, xlabel, ylabel, lRs, ticks=0, offset=0, xs=None, legend=True ):
-    """
-    Takes dict as input, plots line graph
-    """
-    # Average Validation accuracy throughout epochs
-    plt.figure( figsize=( 10, 7 ) )
-    plt.title( title )
-    plt.ylim( [0, 100] )
-    if xs is None:
-        xs = np.array( range( 0, len( list( dic.values() )[0] ) ) ) * ticks + offset
-
-    for lR in lRs:
-        plt.plot( xs, np.array( dic[lR] ) * 100, label=lR )
-
-    # Axes
-    plt.xlabel( xlabel )
-    plt.ylabel( ylabel )
-    plt.grid( True, axis="y" )
-
-    # Legend
-    if legend:
-        plt.legend( lRs.keys() );
-
-plotLineGraph( avgResults, "Test Accuracy during one Epoch", "Training Examples", "Accuracy in %", lRs, N, offset, xs, False )
-plt.vlines( 0, 0, 100, color="grey", label="Start Epoch 1" )
-plt.vlines( X_train.shape[0], 0, 100, color="grey", label="Start Epoch 2" )
-plt.vlines( X_train.shape[0] * 2, 0, 100, color="grey", label="Start Epoch 3" )
-plt.legend( loc='lower right' );
-
-# %% [markdown]
-# This result was quite surprising to me, it shows that the Oja and Decay network almost instantly have quite a high  accuracy and then just oscillate strongly. Only after a new epoch starts and the learning rate decreases the networks become better at classifying.
-#
-# To observe better how fast the Decay and Oja network learn, a closer look at the first 1000 training examples and the classification accuracy is taken.
-
-# %%
-# WARNING: This may takes an hour of running time with current parameters!
-runs = 1
-N_INPUT = 28 * 28
-N_OUTPUT = 10
-eta=0.001
-decay=0.9
-N_data = 1000
-N = 20
-resultLength = int( N_data / N )
-
-# Result has shape (learningRules, runs, resultLength)
-results1000 = { lR: [] for lR in lRs }
-for r in range( runs ):
-    print( f"Run {r}" )
-
-    # Init networks and result arraays
-    networks = dict()
-    for lR in lRs:
-        # Network
-        if lR == "Oja":
-            networks[lR] = Layer( N_INPUT, N_OUTPUT, learning=lRs[lR], normalize=True )
-        else:
-            networks[lR] = Layer( N_INPUT, N_OUTPUT, learning=lRs[lR] )
-        # Results
-        results1000[lR].append( np.zeros( resultLength + 1 ) )
-        xs1000 = [0] * ( resultLength + 1 )
-
-    # Train and test networks
-    rcount = 1
-    for i, idx in enumerate( np.random.permutation( X_train.shape[0] )[:N_data] ):
-        for lR in lRs:
-            networks[lR].learn( X_train[idx], y_train[idx], eta=eta )
-        if ( i % N == 0 ):
-            for lR in lRs:
-                results1000[lR][-1][rcount], _ = runTest( X_test, y_test, networks[lR], y_testDigits )
-            xs1000[rcount] = i
-            rcount += 1
-        if ( i % 100 == 0 ):
-            print( "+", end="" )
-    print( "" )
-
-# %%
-# Average results
-avgResults1000 = dict()
-for lR in results1000:
-    avgResults1000[lR] = np.average( results1000[lR], axis=0 )
-
-# %%
-plotLineGraph( avgResults1000, "Test Accuracy during one Epoch", "Training Examples", "Accuracy in %", lRs, N, offset=0, xs=xs1000 )
 
 # %% [markdown]
 # # Stage 3: Comparison
