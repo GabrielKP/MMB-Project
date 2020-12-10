@@ -702,6 +702,24 @@ def plotLineGraph( dic, title, xlabel, ylabel, lRs, ticks=0, offset=0, xs=None, 
         plt.legend( lRs.keys() );
 
 
+def plotWeights( weights ):
+    """
+    Prints n random images with their labels from given images
+    Code adapted from: https://azure.microsoft.com/de-de/services/open-datasets/catalog/mnist/
+    """
+    # Get weights in right format:
+    weights = np.reshape( weights, ( weights.shape[0], 28, 28 ) )
+    # Convert labels to digits:
+    labels = list( range( 10 ) )
+    plt.figure( figsize=( 16, 2.5 ) )
+    for i in range( weights.shape[0] ):
+        plt.subplot( 1, len( labels ), i + 1 )
+        plt.axhline( "" )
+        plt.axvline( "" )
+        plt.text( x=11, y=-4, s=labels[i], fontsize=21 )
+        plt.imshow( weights[i], vmax=np.max( weights ) )
+
+
 # %% [markdown]
 # ## Learning rules
 #
@@ -863,17 +881,6 @@ for network in valHistory.keys():
 plotAccuracies( avgAccs.values(), learningRuleNames, f"Classification accuracy on Testset after {epochs} Epochs, Average of {runs} Runs" )
 
 # %%
-# run = 0
-# plotNumberAccFromWrong( y_test,
-#                        wrongIndices['hebb'][run],
-#                        wrongIndices['deca'][run],
-#                        wrongIndices['ojas'][run],
-#                        f"Accuracy per number for run {run}"
-#                       )
-# plotAccuracies( [ accuracies['hebb'][run], accuracies['deca'][run], accuracies['ojas'][run] ],
-#                learningRuleNames,
-#                f"Accuracy of Networks in Run {run}"
-#               )
 plotAvgNumberAccFromWrong( y_test, wrongIndices, f"Accuracy per number, Average of {runs} runs" )
 
 # %%
@@ -1058,15 +1065,6 @@ plt.suptitle( f" Accuracy on testset for first {N_data} test examples, Average o
 # 4. 
 
 # %%
-# Split testset into different numbers
-numsData = []
-numsLabels = []
-dig = asDigits( y_train )
-for i in range( 10 ):
-    numsData.append( X_train[dig == i] )
-    numsLabels.append( y_train[dig == i] )
-
-# %%
 # Distribute numbers evenly
 X_trainEven = np.zeros( X_train.shape )
 y_trainEven = np.zeros( y_train.shape )
@@ -1160,29 +1158,8 @@ plotNumberAccFromWrong( y_test,
                        "Accuracy across Numbers"
                       )
 
-
-# %%
-# Visualize the weights
-def plotWeights( weights ):
-    """
-    Prints n random images with their labels from given images
-    Code adapted from: https://azure.microsoft.com/de-de/services/open-datasets/catalog/mnist/
-    """
-    # Get weights in right format:
-    weights = np.reshape( weights, ( weights.shape[0], 28, 28 ) )
-    # Convert labels to digits:
-    labels = list( range( 10 ) )
-    plt.figure( figsize=( 16, 2.5 ) )
-    for i in range( weights.shape[0] ):
-        plt.subplot( 1, len( labels ), i + 1 )
-        plt.axhline( "" )
-        plt.axvline( "" )
-        plt.text( x=11, y=-4, s=labels[i], fontsize=21 )
-        plt.imshow( weights[i], vmax=np.max( weights ) )
-
-
-# %%
-np.max( networks['hebb'][0].getWeights() )
+# %% [markdown]
+# Now the weights are visualized:
 
 # %%
 plotWeights( networks['hebb'][0].getWeights() )
@@ -1237,10 +1214,18 @@ print( f" Decay Accuracy on testset {runTest( X_test, y_test, d )[0] * 100:.2f}%
 # This effect is due to the distribution of numbers in the training data. The amount of training images with "5" is the lowest, thus the weights in the neuron responsible for the "5" are a lot lower compared to the weights in other neurons. This leads to a higher activation of other neurons because a few shared neurons have an activation which is combined higher then all shared neurons of the "5" together.
 
 # %% [markdown]
-# With this information a three new networks are trained on an evenly distributed dataset to draw a final conclusion.
+# With all the information of the sections above, three new networks are trained multiple times on an evenly distributed dataset to draw a final conclusion.
 
 # %%
-# Create even dataset:
+# Split testset into different numbers
+numsData = []
+numsLabels = []
+dig = asDigits( y_train )
+for i in range( 10 ):
+    numsData.append( X_train[dig == i] )
+    numsLabels.append( y_train[dig == i] )
+
+# Create evenly distributed dataset:
 length_even = 10 * min( [ len(x) for x in numsLabels ] )
 X_even = np.zeros( (length_even, X_train.shape[1] ) )
 y_even = np.zeros( (length_even, y_train.shape[1] ) )
@@ -1250,9 +1235,12 @@ for i in range( 10 ):
     X_even[i * s:( i + 1 ) * s] = numsData[i][:s]
     y_even[i * s:( i + 1 ) * s] = numsLabels[i][:s]
 
-# plot it for proof
+# plot it to make sure it looks good
 plotData( X_even, y_even, 20 )
 plotDistribution( y_even, "Distribution of numbers in Even Training set" )
+
+# %% [markdown]
+# Now networks are trained one last time for the result section!
 
 # %%
 # Train one last time with all learnings incorporated!
@@ -1280,10 +1268,13 @@ accuracies, wrongIndices, valHistory, _ = trainNewNetworksAndTest( X_even,
 
 
 # %%
-# Plot all final results
+# Average the accuracies
+avgAccsFinal = dict()
+for network in accuracies.keys():
+    avgAccsFinal[network] = np.average( accuracies[network] )
 
 # %% [markdown]
-# # Stage 3: Comparison
+# # Stage 3: Conclusion
 #
 # Now that everything is defined and the architectures are explored, let's discuss the results regarding following three points:
 #
@@ -1295,11 +1286,16 @@ accuracies, wrongIndices, valHistory, _ = trainNewNetworksAndTest( X_even,
 # %% [markdown]
 # ### Accuracy
 #
-# In this section the clear winner is the plain simple Hebbian learning rule paired with linear or relu as activation function. Still, the plain Hebbian learning rule is quite impractical in real world usage, due to the weight explosion.
+# In this section the clear winner is the Oja Network. With a balanced testset, the Decay and plain Hebb learning Rule lead to the same classification Accuracy. However, the plain Hebb learning rule is inpractical in practice due to its weight explosion.
+#
+# The lead of the Oja learning rule compared to the others is mainly due to the normalization of weights. As seen, the Hebb and Decay network reach the same classification accuracy as the Oja network after the normalization of their weights. The normalization of weights makes sure that 
+#
 #
 # Not taking the plain Hebbian learning rule into account, the Oja learning rule performs on average better then the Hebbian Decay rule.
-#
-# @todo: include code cell from above showing results (or a table or something like that)
+
+# %%
+plotAccuracies( avgAccsFinal.values(), learningRuleNames, f"Classification accuracy on Testset after {epochs} Epochs, Average of {runs} Runs" )
+plotAvgNumberAccFromWrong( y_test, wrongIndices, f"Accuracy across Numbers on Testset after {epochs} Epochs, Average of {runs} Runs" )
 
 # %% [markdown]
 # ### Learning speed
@@ -1314,6 +1310,10 @@ accuracies, wrongIndices, valHistory, _ = trainNewNetworksAndTest( X_even,
 # In this category, the Oja Rule clearly wins. Due to the way it works, the weights of the Neurons resemble the first principle component of the data for the digit they are tuned to (@todo: include citation). This could be very helpful for image further analysis, for instance finding, which pixels are the most important ones.
 #
 # @todo: include code cell showing the principal component for each of the numbers - "which pixel is most important for a a digit"
+
+# %%
+plotWeights( networks['ojas'][0].getWeights() )
+plt.suptitle( "Oja Network Weights / Principal Components" );
 
 # %% [markdown]
 # ## Conclusion: How does a neural-network-classifier learning with Hebbs rule compare to a neural-network-classifier learning with Oja's rule?
