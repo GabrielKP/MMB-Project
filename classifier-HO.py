@@ -1054,66 +1054,6 @@ plt.suptitle( f" Accuracy on testset for first {N_data} test examples, Average o
 # It becomes evident that the Ojas Network outperforms both other networks significantly and from the get-go.
 
 # %% [markdown]
-# ### The effect of training order on classification accuracy
-#
-# If training order is the
-#
-# First a few different training orders are created:
-# 1. One number in the end
-# 2. As even as possible
-# 3. "Difficult" numbers such as 5 towards the end
-# 4. 
-
-# %%
-# Distribute numbers evenly
-X_trainEven = np.zeros( X_train.shape )
-y_trainEven = np.zeros( y_train.shape )
-turn = 0
-numIdx = 0
-i = 0
-while i < X_train.shape[0]:
-    for c in range( 10 ):
-        if numIdx < numsLabels[c].shape[0]:
-            X_trainEven[i] = numsData[c][numIdx]
-            y_trainEven[i] = numsLabels[c][numIdx]
-            i += 1
-    numIdx += 1
-
-# Reverse so that uneven "excess" numbers are at the beginning
-X_trainEven = np.flip( X_trainEven, axis=0 )
-y_trainEven = np.flip( y_trainEven, axis=0 )
-
-# %%
-numsLabels[1].shape
-
-# %%
-accuraciesEven, wrongIndicesEven, valHistoryEven, _ = trainNewNetworksAndTest( X_trainEven,
-                                                                           y_trainEven,
-                                                                           X_val,
-                                                                           y_val,
-                                                                           X_test,
-                                                                           y_test,
-                                                                           learningRules,
-                                                                           runs=10,
-                                                                           epochs=3,
-                                                                           permute=False,
-                                                                           eta=0.1,
-                                                                           decay=0.4
-                                                                          )
-
-run = 0
-plotNumberAccFromWrong( y_test,
-                       wrongIndicesEven['hebb'][run],
-                       wrongIndicesEven['deca'][run],
-                       wrongIndicesEven['ojas'][run],
-                       f"Accuracy per number for Run {run}"
-                      )
-plotAccuracies( [ accuraciesEven['hebb'][run], accuraciesEven['deca'][run], accuraciesEven['ojas'][run] ],
-               learningRuleNames,
-               f"Accuracy of Networks in Run {run}"
-              )
-
-# %% [markdown]
 # ### Why do the networks struggle with the 5?
 #
 # When looking at the prediction accuracy accross numbers the performance for the "5" is astronomically bad. Even the Oja network seems to struggle. But why could that be the case?
@@ -1211,7 +1151,7 @@ print( f" Hebb Accuracy on testset  {runTest( X_test, y_test, h )[0] * 100:.2f}%
 print( f" Decay Accuracy on testset {runTest( X_test, y_test, d )[0] * 100:.2f}%")
 
 # %% [markdown]
-# This effect is due to the distribution of numbers in the training data. The amount of training images with "5" is the lowest, thus the weights in the neuron responsible for the "5" are a lot lower compared to the weights in other neurons. This leads to a higher activation of other neurons because a few shared neurons have an activation which is combined higher then all shared neurons of the "5" together.
+# This effect is due to the distribution of numbers in the training data. The amount of training images with "5" is the lowest, thus the weights in the neuron responsible for the "5" are a lot lower compared to the weights in other neurons. This leads to a higher activation of other neurons because a few shared neurons have an activation which is combined higher then all shared neurons of the "5" together. If you look closely at the visualized weights, you can see that the 5 in the Hebb and Decay Network is less "active" than the other numbers, whereas in the Oja network all numbers except of "1" are similar.
 
 # %% [markdown]
 # With all the information of the sections above, three new networks are trained multiple times on an evenly distributed dataset to draw a final conclusion.
@@ -1288,10 +1228,7 @@ for network in accuracies.keys():
 #
 # In this section the clear winner is the Oja Network. With a balanced testset, the Decay and plain Hebb learning Rule lead to the same classification Accuracy. However, the plain Hebb learning rule is inpractical in practice due to its weight explosion.
 #
-# The lead of the Oja learning rule compared to the others is mainly due to the normalization of weights. As seen, the Hebb and Decay network reach the same classification accuracy as the Oja network after the normalization of their weights. The normalization of weights makes sure that 
-#
-#
-# Not taking the plain Hebbian learning rule into account, the Oja learning rule performs on average better then the Hebbian Decay rule.
+# The lead of the Oja learning rule compared to the others is mainly due to the normalization of weights. As seen, the Hebb and Decay network reach the same classification accuracy as the Oja network after the normalization of their weights. The normalization of weights makes sure that no neuron activates inproportionatly much because of a few Neurons with extremely high weights.
 
 # %%
 plotAccuracies( avgAccsFinal.values(), learningRuleNames, f"Classification accuracy on Testset after {epochs} Epochs, Average of {runs} Runs" )
@@ -1318,13 +1255,10 @@ plt.suptitle( "Oja Network Weights / Principal Components" );
 # %% [markdown]
 # ## Conclusion: How does a neural-network-classifier learning with Hebbs rule compare to a neural-network-classifier learning with Oja's rule?
 #
-# Whereas the network with the plain Hebbian learning rule has quite an impressive learning rate and accuracy, it is impractical due to it's weight explosion.
+# The Oja learning Rule beats both other learning rules in every category. In this task, this is mainly due to the normalization, because of which the classification accuracy significantly improves and because of which the Principal Component property arise.
 #
-# The interesting part is the comparison of Oja's rule and Hebb's Decay Rule. In terms of accuracy, both rules provide for a image classification around 60%, with neither being completely dominant over the other. Furthermore, both rules highly depend on the order of the presented training data, making their learning rate quite unpredictable und not very stable over time. The key difference is, that Oja's network also gives you acces to the first principal component of the input data, making it very valuable for input data analysis.
-# ( I can only really write more with the other results in )
-#
-#
-# @todo: relate to state of the art
+# Still, in comparison to the state of the art classification methods the Oja network is long shot away.
+# It would be interesting to explore whether a multi-layer structure could be feasibly implemented without violating biological principles and if that would have a positive effect on classification accuracy.
 
 # %% [markdown]
 # ## Future Work
