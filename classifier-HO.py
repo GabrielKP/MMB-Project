@@ -82,10 +82,10 @@
 
 # Imports
 
+import copy
 import gzip
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import random
 
 
@@ -112,7 +112,7 @@ def runTest( X, y, network, convertedy=None ):
     Requires the predictions being higher then 0.
     If there is multiple predictions with the same value, the lowest digit of those is taken.
     """
-    assert isinstance( network, Layer ) or isinstance( network, Network ), "Not given a 'Layer' or 'Network' object in network argument!"
+    # assert isinstance( network, Layer ) or isinstance( network, Network ), "Not given a 'Layer' or 'Network' object in network argument!"
     assert X.shape[0] == y.shape[0], "X shape does not match y shape!"
 
     # Convert Labels into digits
@@ -242,12 +242,12 @@ class Layer():
         """
         assert Xt.shape[0] == yt.shape[0], "X shape does not match y shape!"
         assert X_val.shape[0] == y_val.shape[0], "X shape does not match y shape (Val Data)!"
-        assert decayAfter <= 1 and deceayAfter > 0, "Decay "
+        assert decayAfter <= 1 and decayAfter > 0, "Decay "
         
         hist = []
 
         # Set up decay
-        idxDec = Xt.shape[0] * decayAfter
+        idxDec = int( Xt.shape[0] * decayAfter )
 
         for x in range( epochs ):
             print( f"Epoch { x + 1 }: ", end='' )
@@ -257,7 +257,7 @@ class Layer():
                 permutation = list( range( Xt.shape[0] ) )
     
             for i, idx in enumerate( permutation ):
-                self.learn( Xt[i], yt[i], eta )
+                self.learn( Xt[idx], yt[idx], eta )
                 if ( (i + 1) % idxDec ) == 0:
                     eta *= decay
 
@@ -626,14 +626,14 @@ def plotNumberAcc( percentHebb, percentDeca, percentOjas, title ):
     plt.title( title )
     plt.show()
 
-def plotNumberAccFromWrong( y, wrongHebb, wrongDeca, wrongOjas, title ):
+def plotNumberAccFromWrong( y, idxWrongDic, run, title ):
     """
     Plots a bar graph with labels on x axis and accuracy on y axis for given testset and
         wrongly classified indices
     """
-    percentHebb = computeAccPerLabel( y, wrongHebb ) * 100
-    percentDeca = computeAccPerLabel( y, wrongDeca ) * 100
-    percentOjas = computeAccPerLabel( y, wrongOjas ) * 100
+    percentHebb = computeAccPerLabel( y, idxWrongDic['hebb'][run] ) * 100
+    percentDeca = computeAccPerLabel( y, idxWrongDic['deca'][run] ) * 100
+    percentOjas = computeAccPerLabel( y, idxWrongDic['ojas'][run] ) * 100
 
     plotNumberAcc( percentHebb, percentDeca, percentOjas, title )
 
@@ -1095,6 +1095,7 @@ accuraciesEven, wrongIndicesEven, valHistoryEven, _ = trainNewNetworksAndTest( X
                                                                            y_val,
                                                                            X_test,
                                                                            y_test,
+                                                                           learningRules,
                                                                            runs=10,
                                                                            epochs=3,
                                                                            permute=False,
@@ -1123,16 +1124,163 @@ plotAccuracies( [ accuraciesEven['hebb'][run], accuraciesEven['deca'][run], accu
 
 # %%
 # Train 3 networks
+runs = 1
+epochs = 3
+decayAfter = 0.1
+decay = 0.95
+eta = 0.001
 
-networks = dict()
-for lR in lRs:
-    # Network
-    if lR == "Oja":
-        networks[lR] = Layer( N_INPUT, N_OUTPUT, learning=lRs[lR], normalize=True )
-    else:
-        networks[lR] = Layer( N_INPUT, N_OUTPUT, learning=lRs[lR] )
-        
+accuracies, wrongIndices, _, networks = trainNewNetworksAndTest( X_train,
+                                                                 y_train,
+                                                                 X_val,
+                                                                 y_val,
+                                                                 X_test,
+                                                                 y_test,
+                                                                 runs=runs,
+                                                                 epochs=epochs,
+                                                                 learningRules=learningRules,
+                                                                 decayAfter=decayAfter,
+                                                                 decay=decay,
+                                                                 permute=True,
+                                                                 eta=eta,
+                                                                 retNetworks=True
+                                                                )
 
+
+# %%
+# Verify the accuracy on testset
+plotAccuracies( [ v[0] for v in accuracies.values() ],
+             learningRuleNames,
+             "Accuracy of networks on Testset"
+            )
+
+plotNumberAccFromWrong( y_test,
+                       wrongIndices,
+                       0,
+                       "Accuracy across Numbers"
+                      )
+
+
+# %%
+# Visualize the weights
+def plotWeights( weights ):
+    """
+    Prints n random images with their labels from given images
+    Code adapted from: https://azure.microsoft.com/de-de/services/open-datasets/catalog/mnist/
+    """
+    # Get weights in right format:
+    weights = np.reshape( weights, ( weights.shape[0], 28, 28 ) )
+    # Convert labels to digits:
+    labels = list( range( 10 ) )
+    plt.figure( figsize=( 16, 2.5 ) )
+    for i in range( weights.shape[0] ):
+        plt.subplot( 1, len( labels ), i + 1 )
+        plt.axhline( "" )
+        plt.axvline( "" )
+        plt.text( x=11, y=-4, s=labels[i], fontsize=21 )
+        plt.imshow( weights[i], vmax=np.max( weights ) )
+
+
+# %%
+np.max( networks['hebb'][0].getWeights() )
+
+# %%
+plotWeights( networks['hebb'][0].getWeights() )
+plt.suptitle( "Hebb Network Weights" )
+plotWeights( networks['deca'][0].getWeights() )
+plt.suptitle( "Decay Network Weights" )
+plotWeights( networks['ojas'][0].getWeights() )
+plt.suptitle( "Oja Network Weights" );
+
+# %% [markdown]
+# The weights look almost identical!
+#
+# Python automatically scales the picture values to the maximum and minimum value, thus the results from above mean that the ratio of weights is very similar to each other, still the learnt weights are quite different:
+
+# %%
+print( f"Hebb Max: {np.max( networks['hebb'][0].getWeights() )}" )
+print( f"Decay Max: {np.max( networks['deca'][0].getWeights() )}" )
+print( f"Oja Max: {np.max( networks['ojas'][0].getWeights() )}" )
+
+# %% [markdown]
+# But if the weight ratios are so similar, why is the prediction accuracy so much better for the Oja network?
+#
+# We can see that there is no certain pattern besides the prediction of "0","3","8" and "9" in the missclassification of the other two networks when attempting to label the 5:
+
+# %%
+h, d, o = copy.copy( networks['hebb'][0] ), copy.copy( networks['deca'][0] ), copy.copy( networks['ojas'][0] )
+
+# %%
+examples = 5
+os = random.randint( 0, len( numsLabels[5] ) - examples )
+for i in range( examples ):
+    print( "###")
+    print( f"True Label: { np.argmax( numsLabels[5][i + os] )}")
+    print( f"Hebb Prediction: {np.argmax( softmax( h.compute( numsData[5][i + os] ) ) )}" )
+    print( f"Decay Prediction: {np.argmax( softmax( d.compute( numsData[5][i + os] ) ) )}" )
+    print( f"Ojas Prediction: {np.argmax( softmax( o.compute( numsData[5][i + os] ) ) )}" )
+
+# %% [markdown]
+# The key factor is the normalization! If the weights of the Hebb and Decay network are normalized, they reach a similar accuracy to the Oja classifier.
+
+# %%
+print( "Accuracy before normalization" )
+print( f" Hebb Accuracy on testset  {runTest( X_test, y_test, h )[0] * 100:.2f}%")
+print( f" Decay Accuracy on testset {runTest( X_test, y_test, d )[0] * 100:.2f}%")
+h.weights = normalizeRows( h.weights )
+d.weights = normalizeRows( d.weights )
+print( "\nAccuracy after normalization" )
+print( f" Hebb Accuracy on testset  {runTest( X_test, y_test, h )[0] * 100:.2f}%")
+print( f" Decay Accuracy on testset {runTest( X_test, y_test, d )[0] * 100:.2f}%")
+
+# %% [markdown]
+# This effect is due to the distribution of numbers in the training data. The amount of training images with "5" is the lowest, thus the weights in the neuron responsible for the "5" are a lot lower compared to the weights in other neurons. This leads to a higher activation of other neurons because a few shared neurons have an activation which is combined higher then all shared neurons of the "5" together.
+
+# %% [markdown]
+# With this information a three new networks are trained on an evenly distributed dataset to draw a final conclusion.
+
+# %%
+# Create even dataset:
+length_even = 10 * min( [ len(x) for x in numsLabels ] )
+X_even = np.zeros( (length_even, X_train.shape[1] ) )
+y_even = np.zeros( (length_even, y_train.shape[1] ) )
+
+s = min( [ len(x) for x in numsLabels ] )
+for i in range( 10 ):
+    X_even[i * s:( i + 1 ) * s] = numsData[i][:s]
+    y_even[i * s:( i + 1 ) * s] = numsLabels[i][:s]
+
+# plot it for proof
+plotData( X_even, y_even, 20 )
+plotDistribution( y_even, "Distribution of numbers in Even Training set" )
+
+# %%
+# Train one last time with all learnings incorporated!
+runs = 10
+epochs = 5
+decayAfter = 0.1
+decay = 0.95
+eta = 0.001
+
+accuracies, wrongIndices, valHistory, _ = trainNewNetworksAndTest( X_even,
+                                                                 y_even,
+                                                                 X_val,
+                                                                 y_val,
+                                                                 X_test,
+                                                                 y_test,
+                                                                 runs=runs,
+                                                                 epochs=epochs,
+                                                                 learningRules=learningRules,
+                                                                 decayAfter=decayAfter,
+                                                                 decay=decay,
+                                                                 permute=True,
+                                                                 eta=eta,
+                                                                 retNetworks=False
+                                                                )
+
+
+# %%
+# Plot all final results
 
 # %% [markdown]
 # # Stage 3: Comparison
