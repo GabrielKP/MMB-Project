@@ -227,15 +227,27 @@ class Layer():
         return self.aF( np.dot( self.weights, x ) )
 
 
-    def train( self, Xt, yt, X_val, y_val, epochs, eta, permute, verbose=True, decay=1 ):
+    def train( self, Xt, yt, X_val, y_val, epochs, eta, permute, verbose=True, decay=1, decayAfter=1 ):
         """
         Trains the neural network on training set for given epochs
         Returns history of training accuracy over validation set for each epoch
+        Xt, X_val: Data Training/Validation
+        yt, y_val: Labels Training/Validation
+        epochs: how often you go through entire training set
+        eta: learning rate
+        permute: train in order given by data or randomly permute it?
+        verbose: print validation accuracy after epoch
+        decayAfter: Number (0, 1] indicating after how much of the training set has passed the learning rate is decayed
+        decay: the ratio with which the learning rate is decayed
         """
         assert Xt.shape[0] == yt.shape[0], "X shape does not match y shape!"
         assert X_val.shape[0] == y_val.shape[0], "X shape does not match y shape (Val Data)!"
+        assert decayAfter <= 1 and deceayAfter > 0, "Decay "
         
         hist = []
+
+        # Set up decay
+        idxDec = Xt.shape[0] * decayAfter
 
         for x in range( epochs ):
             print( f"Epoch { x + 1 }: ", end='' )
@@ -244,8 +256,10 @@ class Layer():
             else:
                 permutation = list( range( Xt.shape[0] ) )
     
-            for i in permutation:
+            for i, idx in enumerate( permutation ):
                 self.learn( Xt[i], yt[i], eta )
+                if ( (i + 1) % idxDec ) == 0:
+                    eta *= decay
 
             # Compute validation, save and print
             correct, _ = runTest( X_val, y_val, self )
@@ -347,12 +361,14 @@ def trainNewNetworksAndTest( X_train,
                             runs,
                             epochs,
                             learningRules,
+                            decayAfter=1,
                             decay=1,
                             permute=True,
                             N_INPUT=28*28,
                             N_OUTPUT=10,
                             eta=0.1,
-                            verbose=True
+                            verbose=True,
+                            retNetworks=False
                            ):
     """
     Trains 3 new networks and returns dictionaries for accuracies, wrongly classified indices and
@@ -363,6 +379,7 @@ def trainNewNetworksAndTest( X_train,
     y_val: Validation labels
     X_test: Testing data
     y_test: Tesing labels
+    decayAfter: Number (0, 1] indicating after how much of the training set has passed the learning rate is decayed
     decay: Decay learning coefficient eta by this rate, set to 1 for no decay
     runs: Divisible by 2, Amount of different testruns for each network
     epochs: Amount of iterations through testset for a single network
@@ -370,12 +387,17 @@ def trainNewNetworksAndTest( X_train,
     N_INPUT: input number of neurons
     N_OUTPUT: output number of neurons
     eta: learning rate
+    retNetworks: whether networks should be returned or not
     """
     r_hebb, r_decay, r_ojas = learningRules
     # Create a dictionaries with all the networks and activationFunctions
     accuracies = { 'hebb': [], 'deca': [], 'ojas': [] }
     wrongIndices = { 'hebb': [], 'deca': [], 'ojas': [] }
     valHistory = { 'hebb': [], 'deca': [], 'ojas': [] }
+    if retNetworks:
+        networks = { 'hebb': [], 'deca': [], 'ojas': [] }
+    else:
+        networks = None
 
 
     for run in range( runs ):
@@ -387,13 +409,13 @@ def trainNewNetworksAndTest( X_train,
         # Train
         print( "Hebb" )
         np.random.seed( run )
-        hisHebb = hebb.train( X_train, y_train, X_val, y_val, decay=decay, permute=permute, epochs=epochs, eta=eta, verbose=verbose )
+        hisHebb = hebb.train( X_train, y_train, X_val, y_val, decayAfter=decayAfter, decay=decay, permute=permute, epochs=epochs, eta=eta, verbose=verbose )
         print( "Decay" )
         np.random.seed( run )
-        hisDeca = deca.train( X_train, y_train, X_val, y_val, decay=decay, permute=permute, epochs=epochs, eta=eta, verbose=verbose )
+        hisDeca = deca.train( X_train, y_train, X_val, y_val, decayAfter=decayAfter, decay=decay, permute=permute, epochs=epochs, eta=eta, verbose=verbose )
         print( "Oja")
         np.random.seed( run )
-        hisOjas = ojas.train( X_train, y_train, X_val, y_val, decay=decay, permute=permute, epochs=epochs, eta=eta, verbose=verbose )
+        hisOjas = ojas.train( X_train, y_train, X_val, y_val, decayAfter=decayAfter, decay=decay, permute=permute, epochs=epochs, eta=eta, verbose=verbose )
         # Run test after training
         hebb_post_acc, hebb_post_iWrong = runTest( X_test, y_test, hebb )
         deca_post_acc, deca_post_iWrong = runTest( X_test, y_test, deca )
@@ -408,9 +430,13 @@ def trainNewNetworksAndTest( X_train,
         valHistory['hebb'].append( hisHebb )
         valHistory['deca'].append( hisDeca )
         valHistory['ojas'].append( hisOjas )
+        if retNetworks:
+            networks['hebb'].append( hebb )
+            networks['deca'].append( deca )
+            networks['ojas'].append( ojas )
 
     print( "Done" )
-    return accuracies, wrongIndices, valHistory
+    return accuracies, wrongIndices, valHistory, networks
 
 
 def readImages( path ):
@@ -800,9 +826,9 @@ plotDistribution( y_train, "Train data distribution" )
 # First, the three networks are initialized to weights of 0, and trained on all on the same random permutations of the training data for 10 epochs in 10 different runs. I found that the performance was best with a learning rate of 0.1 and a decay rate for 0.4. Be warned, training may take some time. Furthermore there is a runtime warning which does not affect the outcome of the training.
 
 # %%
-epochs = 10
-runs = 4
-accuracies, wrongIndices, valHistory = trainNewNetworksAndTest( X_train,
+epochs = 5
+runs = 2
+accuracies, wrongIndices, valHistory, _ = trainNewNetworksAndTest( X_train,
                                                                y_train,
                                                                X_val,
                                                                y_val,
@@ -978,8 +1004,6 @@ plt.legend( loc='lower right' );
 # To observe better how fast the Decay and Oja network learn, a closer look at the first 10000 training examples and the classification accuracy is taken with different learning rates. The learning rates explored are: \[0.8, 0.4, 0.2, 0.1, 0.05, 0.01, 0.005, 0.001\]
 
 # %%
-
-# %%
 # WARNING: This may takes an hour of running time with current parameters!
 runs = 10
 etas = [0.8, 0.4, 0.2, 0.1, 0.05, 0.01, 0.005, 0.001]
@@ -1065,7 +1089,7 @@ y_trainEven = np.flip( y_trainEven, axis=0 )
 numsLabels[1].shape
 
 # %%
-accuraciesEven, wrongIndicesEven, valHistoryEven = trainNewNetworksAndTest( X_trainEven,
+accuraciesEven, wrongIndicesEven, valHistoryEven, _ = trainNewNetworksAndTest( X_trainEven,
                                                                            y_trainEven,
                                                                            X_val,
                                                                            y_val,
@@ -1093,10 +1117,22 @@ plotAccuracies( [ accuraciesEven['hebb'][run], accuraciesEven['deca'][run], accu
 # %% [markdown]
 # ### Why do the networks struggle with the 5?
 #
-# Which labels does the 5 get?
+# When looking at the prediction accuracy accross numbers the performance for the "5" is astronomically bad. Even the Oja network seems to struggle. But why could that be the case?
+#
+# To answer this question 3 networks are trained, their results are verified and then a look at their weight distribution is taken.
 
 # %%
-# Visualization of weights
+# Train 3 networks
+
+networks = dict()
+for lR in lRs:
+    # Network
+    if lR == "Oja":
+        networks[lR] = Layer( N_INPUT, N_OUTPUT, learning=lRs[lR], normalize=True )
+    else:
+        networks[lR] = Layer( N_INPUT, N_OUTPUT, learning=lRs[lR] )
+        
+
 
 # %% [markdown]
 # # Stage 3: Comparison
