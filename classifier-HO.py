@@ -524,14 +524,10 @@ def computeAccPerLabel( y, wrongIndices ):
     
     return ( distr - wrongs ) / distr
 
-def plotNumberAccFromWrong( y, wrongHebb, wrongDeca, wrongOjas, title ):
+def plotNumberAcc( percentHebb, percentDeca, percentOjas, title ):
     """
-    Plots a bar graph with labels on x axis and accuracy on y axis with bars for all learning rules
+    Plots given percentages in bar Graph for numbers 0 to 9
     """
-    percentHebb = computeAccPerLabel( y, wrongHebb ) * 100
-    percentDeca = computeAccPerLabel( y, wrongDeca ) * 100
-    percentOjas = computeAccPerLabel( y, wrongOjas ) * 100
-
     width = 1
     bins = np.array( range(11) )
 
@@ -562,6 +558,34 @@ def plotNumberAccFromWrong( y, wrongHebb, wrongDeca, wrongOjas, title ):
     plt.legend( ["Hebbian", "Decay", "Oja"] )
     plt.title( title )
     plt.show()
+
+def plotNumberAccFromWrong( y, wrongHebb, wrongDeca, wrongOjas, title ):
+    """
+    Plots a bar graph with labels on x axis and accuracy on y axis for given testset and
+        wrongly classified indices
+    """
+    percentHebb = computeAccPerLabel( y, wrongHebb ) * 100
+    percentDeca = computeAccPerLabel( y, wrongDeca ) * 100
+    percentOjas = computeAccPerLabel( y, wrongOjas ) * 100
+
+    plotNumberAcc( percentHebb, percentDeca, percentOjas, title )
+
+def plotAvgNumberAccFromWrong( y, idxWrongDic, title ):
+    """
+    Plots bar graph of average accuracy per label in testset y
+    given dictionary of wrong indices
+    """
+    accs = { lR: [] for lR in idxWrongDic }
+    for lR in idxWrongDic:
+        for run in range( len( idxWrongDic[lR] ) ):
+            accs[lR].append( computeAccPerLabel( y, idxWrongDic[lR][run] ) * 100 )
+
+    plotNumberAcc( np.average( accs['hebb'], axis=0 ),
+                  np.average( accs['deca'], axis=0 ),
+                  np.average( accs['ojas'], axis=0 ),
+                  title
+                 )
+
 
 def plotAccuracies( accs, learningRuleNames, title ):
     plt.figure( figsize=( 10, 7 ) )
@@ -746,7 +770,40 @@ for network in valHistory.keys():
 
 # %%
 # Testset accuracy    
-plotAccuracies( avgAccs.values(), learningRuleNames, f"Average classification accuracy on Testset after {epochs} Epochs" )
+plotAccuracies( avgAccs.values(), learningRuleNames, f"Classification accuracy on Testset after {epochs} Epochs, Average of {runs} Runs" )
+
+# %%
+# run = 0
+# plotNumberAccFromWrong( y_test,
+#                        wrongIndices['hebb'][run],
+#                        wrongIndices['deca'][run],
+#                        wrongIndices['ojas'][run],
+#                        f"Accuracy per number for run {run}"
+#                       )
+# plotAccuracies( [ accuracies['hebb'][run], accuracies['deca'][run], accuracies['ojas'][run] ],
+#                learningRuleNames,
+#                f"Accuracy of Networks in Run {run}"
+#               )
+plotAvgNumberAccFromWrong( y_test, wrongIndices, f"Accuracy per number, Average of {runs} runs" )
+
+# %%
+# Average Validation accuracy throughout epochs
+plt.figure( figsize=( 10, 7 ) )
+plt.title( f"Classification Accuracy on Validation Data by epoch, Average of {runs} Runs" )
+plt.ylim( [0, 100] )
+xs = range( 1, epochs + 1 )
+
+plt.plot( xs, np.array( avgValHis['hebb'] ) * 100 )
+plt.plot( xs, np.array( avgValHis['deca'] ) * 100 )
+plt.plot( xs, np.array( avgValHis['ojas'] ) * 100 )
+
+# Axes
+plt.xlabel( 'Epochs' )
+plt.xticks( xs )
+plt.ylabel( 'Accuracy in %' )
+
+# Legend
+plt.legend( learningRuleNames );
 
 # %%
 # Run Validation accuracy throughout epochs
@@ -770,39 +827,6 @@ for r in range( runs ):
 plt.suptitle( "Classification Accuracy on Validation Data by epoch for each run" )
 plt.legend( learningRuleNames )
 plt.tight_layout();
-
-# %%
-# Average Validation accuracy throughout epochs
-plt.figure( figsize=( 10, 7 ) )
-plt.title( "Average classification Accuracy on Validation Data by epoch" )
-plt.ylim( [0, 1] )
-xs = range( 1, epochs + 1 )
-
-plt.plot( xs, avgValHis['hebb'] )
-plt.plot( xs, avgValHis['deca'] )
-plt.plot( xs, avgValHis['ojas'] )
-
-# Axes
-plt.xlabel( 'Epochs' )
-plt.xticks( xs )
-plt.ylabel( 'Accuracy in %' )
-
-# Legend
-plt.legend( learningRuleNames );
-
-# %%
-run = 0
-plotNumberAccFromWrong( y_test,
-                       wrongIndices['hebb'][run],
-                       wrongIndices['deca'][run],
-                       wrongIndices['ojas'][run],
-                       f"Accuracy per number for Run {run}"
-                      )
-plotAccuracies( [ accuracies['hebb'][run], accuracies['deca'][run], accuracies['ojas'][run] ],
-               learningRuleNames,
-               f"Accuracy of Networks in Run {run}"
-              )
-# @todo avergae
 
 # %% [markdown]
 # There are some interesting observations for these results:
@@ -911,7 +935,7 @@ plt.legend( loc='lower right' );
 # %% [markdown]
 # This result was quite surprising to me, it shows that the Oja and Decay network almost instantly have quite a high  accuracy and then just oscillate strongly. Only after a new epoch starts and the learning rate decreases the networks become better at classifying.
 #
-# To observe better how fast the Decay and Oja network learn, a closer look at the first 1000 training examples and the classification accuracy is taken.
+# To observe better how fast the Decay and Oja network learn, a closer look at the first 10000 training examples and the classification accuracy is taken with different learning rates. The learning rates explored are: \[0.8, 0.4, 0.2, 0.1, 0.05, 0.01, 0.005, 0.001\]
 
 # %%
 # WARNING: This may takes an hour of running time with current parameters!
