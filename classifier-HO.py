@@ -17,7 +17,7 @@
 # %% [markdown]
 # AS.200.313, Models of Mind and Brain, Prof. Honey
 #
-# Project draft, Gabriel Kressin
+# Final Project, Gabriel Kressin
 #
 # # How does a neural-network learning with Hebbs rule compare to a neural-network learning with a Hebb-Decay rule and Oja's rule regarding accuracy, learning speed and other features in a digit classification task?
 #
@@ -35,11 +35,11 @@
 # #### Stage 1: Definition
 # First, the network and learning rules are explained and defined. Additionally the data is loaded in and taken a look at.
 #
-# #### Stage 2: Training
-# Second, the networks are trained on the data and results are plotted. Based on the results additional investigations into training order, accuracy of specific numbers and learning speed are made.
+# #### Stage 2: Training & Exploration
+# Second, the networks are trained on the data and results are plotted. Based on the results additional investigations into learning speed and specific effects are made.
 #
 # #### Stage 3: Conclusion
-# Finally, a conclusion is drawn based on the results and following thre criterias:
+# Finally, a conclusion is drawn based on the results and following three criteria:
 # - Classification accuracy
 # - Learning speed
 # - Emerging other factors
@@ -67,15 +67,11 @@
 # - getWeights: returns the weights object
 # - train: trains the Layer on a dataset
 #
-# For convenience, to build a multi-layer network the 'Network' class is defined. It is a Wrapper for multiple stacks of Layers and defines like a Layer multiple functions:
-# - compute: computes the outputs of neurons in the layer
-# - learn: updates the weights for given samples
-# - getWeights: returns the weights object
-# - train: trains the Layer on a dataset
-#
 # Furthermore, the cell below features all of the functions used in the project.
 #
-# To load the project properly you will need to have matplotlib, numpy and pandas installed.
+# The project was run on python 3.8.6; To load the project properly following dependencies are needed:
+# - matplotlib
+# - numpy
 
 # %%
 # %matplotlib inline
@@ -272,74 +268,6 @@ class Layer():
         return hist
 
 
-class Network:
-    """
-    Wrapperclass to hold multiple layers.
-    """
-
-    def __init__( self, compute=None, learn=None ):
-        """
-        compute: function which computes outputs to inputs
-        learn: function which learns the networks
-        """
-        self.compute = compute
-        self.learn = learn
-
-
-    def setCompute( self, compute ):
-        """
-        Sets the compute function
-        """
-        self.compute = compute
-
-
-    def compute( self, x ):
-        """
-        Computes a Prediction with current weights from imput x.
-        """
-        assert self.compute is not None, "compute not set!"
-        return self.compute( x )
-
-
-    def setLearn( self, learn ):
-        """
-        Sets the learn function
-        """
-        self.learn = learn
-
-
-    def learn( self, x, y, eta=0.25 ):
-        """
-        X: input data
-        y: output data
-        eta: learning rate
-        """
-        assert self.learn is not None, "learn not set!"
-        self.learn( x, y, eta )
-
-
-#     def train( self, X, y, epochs, eta, seed=None, plot=False ):
-#         """
-#         Trains the neural network on training set for given epochs
-#         """
-#         assert X.shape[0] == y.shape[0], "X shape does not match y shape!"
-
-#         # Set seed
-#         np.random.seed( seed )
-#         for x in range( epochs ):
-#             print( f"Epoch { x + 1 }: ", end='' )
-#             for i in np.random.permutation( X.shape[0] ):
-#                 self.learn( X[i], y[i], eta )
-
-#             # Pick last 10% and compute the hit rate on them
-#             lindex = int( X.shape[0] * 0.9 )
-#             correct, _ = runTest( X[lindex:], y[lindex:], self )
-#             print( f"Val: { correct }" )
-
-#         # @todo: plot
-
-
-
 # Other Functions
 
 def runPrintTest( X, y, network, name="" ):
@@ -398,7 +326,6 @@ def trainNewNetworksAndTest( X_train,
         networks = { 'hebb': [], 'deca': [], 'ojas': [] }
     else:
         networks = None
-
 
     for run in range( runs ):
         print( f"Run Number {run + 1}" )
@@ -473,24 +400,6 @@ def readLabels( path ):
         return labels
 
 
-def plotData( images, labels, n ):
-    """
-    Prints n random images with their labels from given images
-    Code adapted from: https://azure.microsoft.com/de-de/services/open-datasets/catalog/mnist/
-    """
-    # Get images in right format:
-    images = np.reshape( images, ( images.shape[0], 28, 28 ) )
-    # Convert labels to digits:
-    labels = asDigits( labels )
-    plt.figure( figsize=( 16, 6 ) )
-    for i, x in enumerate( np.random.permutation( images.shape[0] )[:n] ):
-        plt.subplot( 1, n, i + 1 )
-        plt.axhline( "" )
-        plt.axvline( "" )
-        plt.text( x=10, y=-10, s=labels[x], fontsize=21 )
-        plt.imshow( images[x], cmap=plt.cm.Greys )
-
-
 def printStats( xs, topFive=False ):
     """
     prints basic information about a numpy array along axis 1
@@ -550,6 +459,39 @@ def accDuringLearning( X, y, X_test, y_test, runs, lRs, stepSize, eta, N_INPUT=2
         return res, xs
 
 
+def computeAccPerLabel( y, wrongIndices ):
+    """
+    Computes Accuracy for given testset y and wrongly marked indices
+    """
+    y = asDigits( y )
+    bins = [0,1,2,3,4,5,6,7,8,9,10]
+    distr, _ = np.histogram( y, bins )
+
+    # Get labels for wrong indices
+    wrongIndiceLabels = y[wrongIndices]
+    wrongs, _ = np.histogram( wrongIndiceLabels, bins )
+
+    return ( distr - wrongs ) / distr
+
+
+def plotData( images, labels, n ):
+    """
+    Prints n random images with their labels from given images
+    Code adapted from: https://azure.microsoft.com/de-de/services/open-datasets/catalog/mnist/
+    """
+    # Get images in right format:
+    images = np.reshape( images, ( images.shape[0], 28, 28 ) )
+    # Convert labels to digits:
+    labels = asDigits( labels )
+    plt.figure( figsize=( 16, 6 ) )
+    for i, x in enumerate( np.random.permutation( images.shape[0] )[:n] ):
+        plt.subplot( 1, n, i + 1 )
+        plt.axhline( "" )
+        plt.axvline( "" )
+        plt.text( x=10, y=-10, s=labels[x], fontsize=21 )
+        plt.imshow( images[x], cmap=plt.cm.Greys )
+
+
 def plotDistribution( labels, title="" ):
     """
     Plots distribution of digits in dataset
@@ -576,20 +518,7 @@ def plotDistribution( labels, title="" ):
         plt.text( bins[i] - 0.4, v + 0.4, f"{v:.2f}%", rotation=45)
     plt.title( title )
     plt.show()
-    
-def computeAccPerLabel( y, wrongIndices ):
-    """
-    Computes Accuracy for given testset y and wrongly marked indices
-    """
-    y = asDigits( y )
-    bins = [0,1,2,3,4,5,6,7,8,9,10]
-    distr, _ = np.histogram( y, bins )
-    
-    # Get labels for wrong indices
-    wrongIndiceLabels = y[wrongIndices]
-    wrongs, _ = np.histogram( wrongIndiceLabels, bins )
-    
-    return ( distr - wrongs ) / distr
+
 
 def plotNumberAcc( percentHebb, percentDeca, percentOjas, title ):
     """
@@ -626,6 +555,7 @@ def plotNumberAcc( percentHebb, percentDeca, percentOjas, title ):
     plt.title( title )
     plt.show()
 
+
 def plotNumberAccFromWrong( y, idxWrongDic, run, title ):
     """
     Plots a bar graph with labels on x axis and accuracy on y axis for given testset and
@@ -636,6 +566,7 @@ def plotNumberAccFromWrong( y, idxWrongDic, run, title ):
     percentOjas = computeAccPerLabel( y, idxWrongDic['ojas'][run] ) * 100
 
     plotNumberAcc( percentHebb, percentDeca, percentOjas, title )
+
 
 def plotAvgNumberAccFromWrong( y, idxWrongDic, title ):
     """
@@ -727,7 +658,7 @@ def plotWeights( weights ):
 #
 # ### Plain Hebb rule
 #
-# Hebbs Rule can be summarized as "What fires together, wires together".
+# Hebbs rule (Hebb D.O. 1949) can be summarized as "What fires together, wires together".
 # The weights $\mathbf{W}$ are updated according to the given input, if the neuron was supposed to be activated. In other words, given a pair $(\mathbf{x}, \mathbf{y})$ the updated weights $\mathbf{\hat{W}}$ are computed:
 #
 # \begin{equation}         
@@ -744,13 +675,13 @@ def plotWeights( weights ):
 #
 # ### Oja's Rule
 #
-# Another way to stop the weight explosion is by normalizing the weights of each neuron to 1. Additionally the 'forgetting' part is limited to the correct outputs. This gives rise to Oja's rule. This leads to other interesting effects, such as that after enough learning attempts the weights of a single neuron represent the first principal component towards the learnt activation. Besides normalizing the weights of each Neuron to 1 after each learning iteration, Oja's rule defines:
+# Another way to stop the weight explosion is by normalizing the weights of each neuron to 1. Additionally the 'forgetting' part is limited to the correct outputs. This gives rise to Oja's rule (Oja E. 1982). Oja's rule defines:
 #
 # \begin{equation}         
 # \mathbf{\hat{W}} = \mathbf{W} + \eta \mathbf{y}( \mathbf{x} - \mathbf{y} \mathbf{W} )
 # \end{equation}
 #
-# ### Rules in Python
+# ### Learning rules in Python
 #
 # Finally, the implementation of the rules in Python! For this project the learning rules are implemented as lambda functions. It is important to keep in mind that they need to work for multiple Neurons stacked on top of each other.
 
@@ -767,15 +698,13 @@ lRs = { "Hebbian": r_hebb, "Decay": r_decay, "Oja": r_ojas }
 # %% [markdown]
 # ## Activation functions
 #
-# For correctness of the above mentioned learning rules a linear Neuron is assumed. To evaluate the output of all neurons, the output vector  of all activations $\mathbf{y}$ is fed through a softmax which converts them to a value between 0 and 1, so that they all sum together to 1.
-#
-# #### Linear activation function
+# For correctness of the above mentioned learning rules a linear Neuron is assumed.
 #
 # \begin{equation}
 #     f(x) = x
 # \end{equation}
 #
-# #### The Softmax
+# To evaluate the output of all neurons, the output vector  of all activations $\mathbf{y}$ is fed through a softmax which converts them to a value between 0 and 1, so that they all sum together to 1.
 #
 # \begin{equation}
 #     f(y_i) = \frac{e^{y_i}}{\sum_y e^{y}}
@@ -806,6 +735,7 @@ y_val = labels[lindex:]
 print( "\nTest" )
 X_test = ( readImages( "data/t10k-images-idx3-ubyte.gz" ) / 255 )
 y_test = np.array( [ np.array( [ 1 if x == label else 0 for x in range(10) ] ) for label in readLabels( "data/t10k-labels-idx1-ubyte.gz" ) ] )
+y_testDigits = asDigits( y_test )
 
 # %% [markdown]
 # This is how the train data looks like:
@@ -820,13 +750,13 @@ plotData( X_train, y_train, 20 )
 plotData( X_val, y_val, 20 )
 
 # %% [markdown]
-# And the test data:
+# Lastly, the test data:
 
 # %%
 plotData( X_test, y_test, 20 )
 
 # %% [markdown]
-# The numbers are distributed as follows for all data sets:
+# The numbers are distributed as followed for all data sets:
 
 # %%
 plotDistribution( y_test, "Test data distribution" )
@@ -844,7 +774,7 @@ plotDistribution( y_train, "Train data distribution" )
 # First, the three networks are initialized to weights of 0, and trained on all on the same random permutations of the training data for 10 epochs in 10 different runs. I found that the performance was best with a learning rate of 0.1 and a decay rate for 0.4. Be warned, training may take some time. Furthermore there is a runtime warning which does not affect the outcome of the training.
 
 # %%
-epochs = 5
+epochs = 3
 runs = 2
 accuracies, wrongIndices, valHistory, _ = trainNewNetworksAndTest( X_train,
                                                                y_train,
@@ -855,8 +785,9 @@ accuracies, wrongIndices, valHistory, _ = trainNewNetworksAndTest( X_train,
                                                                runs,
                                                                epochs,
                                                                learningRules,
-                                                               eta=0.1,
-                                                               decay=0.4
+                                                               eta=0.001,
+                                                               decay=0.9,
+                                                               decayAfter=0.1
                                                               )
 
 # %% [markdown]
@@ -934,8 +865,6 @@ plt.tight_layout();
 
 # %% [markdown]
 # The second observation is easily explained: Whereas the other rules have some sort of "forgetting" term, the plain Hebbian rule only adds input to expected output relations to the weights. Because these are independent on the current weights of the network, and because addition is associative, the order of training examples does not matter. This is also the reason the accuracy for the plain Hebbian network stays exactly the same through time, as after each epoch the weights just changed in the exact same proportions as in the epoch before.
-#
-# The second observation highly suggests that the deciding factor for classification accuracy is training order. But how does training order affect the classification accuracy?
 
 # %% [markdown]
 # ## Learning Speed Comparison
@@ -945,8 +874,8 @@ plt.tight_layout();
 # To answer the question an Ojas, Decay and Hebbian networks are trained in the same random order. To monitor their learning speed after every N steps they are tested on the test-dataset. The experiment is repeated 10 times and the results are averaged.
 
 # %%
-# WARNING: This may takes an hour of running time with current parameters!
-runs = 10
+# WARNING: This may take long!
+runs = 1
 epochs = 3
 N_INPUT = 28 * 28
 N_OUTPUT = 10
@@ -955,8 +884,6 @@ decay=0.4
 N = 1000
 offset = X_train.shape[0] % N
 resultLength = int( X_train.shape[0] / N )
-
-y_testDigits = asDigits( y_test )
 
 # Result has shape (learningRules, runs, resultLength)
 results = { lR: [] for lR in lRs }
@@ -999,7 +926,8 @@ for lR in results:
     avgResults[lR] = np.average( results[lR], axis=0 )
 
 # %%
-plotLineGraph( avgResults, "Test Accuracy during one Epoch", "Training Examples", "Accuracy in %", lRs, N, offset, xs, False )
+# Plot results
+plotLineGraph( avgResults, "Test Accuracy within three Epochs", "Training Examples", "Accuracy in %", lRs, N, offset, xs, False )
 plt.vlines( 0, 0, 100, color="grey", label="Start Epoch 1" )
 plt.vlines( X_train.shape[0], 0, 100, color="grey", label="Start Epoch 2" )
 plt.vlines( X_train.shape[0] * 2, 0, 100, color="grey", label="Start Epoch 3" )
@@ -1012,7 +940,7 @@ plt.legend( loc='lower right' );
 
 # %%
 # WARNING: This may takes an hour of running time with current parameters!
-runs = 10
+runs = 2
 etas = [0.8, 0.4, 0.2, 0.1, 0.05, 0.01, 0.005, 0.001]
 N_data = 40000
 N = 4000
@@ -1047,7 +975,7 @@ for i, eta in enumerate( etas ):
         plt.legend( lRs.keys() )
 
 plt.tight_layout()
-plt.suptitle( f" Accuracy on testset for first {N_data} test examples, Average of {runs} Runs" )
+plt.suptitle( f" Accuracy on testset for first {N_data} test examples, Average of {runs} Runs" );
 
 # %% [markdown]
 # It can observed that an eta between 0.01 and 0.001 seem to work the best for all learning rules. Furthermore
@@ -1156,6 +1084,9 @@ print( f" Decay Accuracy on testset {runTest( X_test, y_test, d )[0] * 100:.2f}%
 # %% [markdown]
 # With all the information of the sections above, three new networks are trained multiple times on an evenly distributed dataset to draw a final conclusion.
 
+# %% [markdown]
+# First, an evenly distributed dataset is created and plotted to make sure it looks good.
+
 # %%
 # Split testset into different numbers
 numsData = []
@@ -1228,7 +1159,7 @@ for network in accuracies.keys():
 #
 # In this section the clear winner is the Oja Network. With a balanced testset, the Decay and plain Hebb learning Rule lead to the same classification Accuracy. However, the plain Hebb learning rule is inpractical in practice due to its weight explosion.
 #
-# The lead of the Oja learning rule compared to the others is mainly due to the normalization of weights. As seen, the Hebb and Decay network reach the same classification accuracy as the Oja network after the normalization of their weights. The normalization of weights makes sure that no neuron activates inproportionatly much because of a few Neurons with extremely high weights.
+# The lead of the Oja learning rule compared to the others is mainly due to the normalization of weights. As seen, the Hebb and Decay network reach the same classification accuracy as the Oja network after the normalization of their weights. This is because the normalization of weights makes sure that no neuron activates inproportionatly much because of a few Neurons with extremely high weights.
 
 # %%
 plotAccuracies( avgAccsFinal.values(), learningRuleNames, f"Classification accuracy on Testset after {epochs} Epochs, Average of {runs} Runs" )
@@ -1237,16 +1168,14 @@ plotAvgNumberAccFromWrong( y_test, wrongIndices, f"Accuracy across Numbers on Te
 # %% [markdown]
 # ### Learning speed
 #
-# Also here, the plain Hebbian learning rule is clearly the fastest. As it is independent from the ordering in training it does not matter how often it is trained, it's best classification accuracy is reached after one Epoch already
-#
-# @todo: include code cell creating a plot of accuracy dependent on Epochs
+# Also here, the Oja network outperforms both other networks.
 
 # %% [markdown]
 # ### Emerging other effects
 #
-# In this category, the Oja Rule clearly wins. Due to the way it works, the weights of the Neurons resemble the first principle component of the data for the digit they are tuned to (@todo: include citation). This could be very helpful for image further analysis, for instance finding, which pixels are the most important ones.
+# In this category, the Oja Rule clearly wins. Due to the way it works, the weights of the Neurons resemble the first principle component of the data for the digit they are tuned to (Oja 1982). This could be very helpful for image further analysis, for instance finding, which pixels are the most important ones.
 #
-# @todo: include code cell showing the principal component for each of the numbers - "which pixel is most important for a a digit"
+# A visualization of the resulting PCA eigenvector can be seen below, in which bright pixels indicate a higher explanation of variance in the corresponing pixel.
 
 # %%
 plotWeights( networks['ojas'][0].getWeights() )
@@ -1277,4 +1206,8 @@ plt.suptitle( "Oja Network Weights / Principal Components" );
 #
 # Amato, G., Carrara, F., Falchi, F., Gennaro, C., & Lagani, G.(2019). Hebbian Learning Meets Deep Convolutional Neural Networks. In: Ricci E., Rota Bulò S., Snoek C., Lanz O., Messelodi S., Sebe N. (eds) Image Analysis and Processing – ICIAP 2019. ICIAP 2019. Lecture Notes in Computer Science, vol 11751. Springer, Cham. https://doi.org/10.1007/978-3-030-30642-7_29
 #
-# @todo: Oja's paper
+# Oja, E. (1982). Simplified neuron model as a principal component analyzer. In: J. Math. Biology 15, 267–273. https://doi.org/10.1007/BF00275687
+#
+# Morris R. G. (1999). D.O. Hebb: The Organization of Behavior, Wiley: New York; 1949. Brain research bulletin, 50(5-6), 437. https://doi.org/10.1016/s0361-9230(99)00182-3
+
+# %%
