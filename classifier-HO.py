@@ -89,7 +89,7 @@ import random
 
 def normalizeRows( x ):
     """
-    Normalizes Rows
+    Normalizes Rows, Frobenius norm
     """
     return x / np.linalg.norm( x, axis=1 )[ :, None ]
 
@@ -866,7 +866,7 @@ for i in range( 10 ):
 # %% [markdown]
 # ### First training
 #
-# Three networks are initialized to weights of 0 and trained on the same random permutation of the training data for 10 epochs. This is repeated in 10 runs.
+# Three networks are initialized to weights of 0 and trained on the same random permutation of the training data for 10 epochs. This is repeated in 5 runs.
 #
 # The learning rate (eta) is set to 0.1, the decay to 0.4 and the decay happens after an entire epoch has passed.
 #
@@ -874,16 +874,16 @@ for i in range( 10 ):
 
 # %%
 # Warning! This may takes some time to compute! (Epochs=5, runs=10 ~ 10 mins)
-epochs = 5   # Amount of iterations on testset
-runs = 10    # Amount of trial runs
+runsFirst = 10     # Amount of trial runs
+epochsFirst = 5   # Amount of iterations on testset
 accuracies, wrongIndices, valHistory, _ = trainNewNetworksAndTest( X_train,
                                                                y_train,
                                                                X_val,
                                                                y_val,
                                                                X_test,
                                                                y_test,
-                                                               runs,
-                                                               epochs,
+                                                               runsFirst,
+                                                               epochsFirst,
                                                                learningRules,
                                                                eta=0.1,
                                                                decay=0.4,
@@ -909,24 +909,24 @@ for network in valHistory.keys():
 
 # %%
 # Testset accuracy    
-plotAccuracies( avgAccs.values(), learningRuleNames, f"Classification accuracy on Testset after {epochs} Epochs, Average of {runs} Runs" )
+plotAccuracies( avgAccs.values(), learningRuleNames, f"Classification accuracy on Testset after {epochsFirst} Epochs, Average of {runsFirst} Runs" )
 
 # Accuracy per number
-plotAvgNumberAccFromWrong( y_test, wrongIndices, f"Accuracy per number, Average of {runs} runs" )
+plotAvgNumberAccFromWrong( y_test, wrongIndices, f"Accuracy per number, Average of {runsFirst} runs" )
 
 # Validation accuracy throughout epochs
 plt.figure( figsize=( 10, 7 ) )
-plt.title( f"Classification Accuracy on Validation Data by epoch, Average of {runs} Runs" )
+plt.title( f"Classification Accuracy on Validation Data by epoch, Average of {runsFirst} Runs" )
 plt.ylim( [0, 100] )
-xs = range( 1, epochs + 1 )
+xsFirst = range( 1, epochsFirst + 1 )
 
-plt.plot( xs, np.array( avgValHis['hebb'] ) * 100 )
-plt.plot( xs, np.array( avgValHis['deca'] ) * 100 )
-plt.plot( xs, np.array( avgValHis['ojas'] ) * 100 )
+plt.plot( xsFirst, np.array( avgValHis['hebb'] ) * 100 )
+plt.plot( xsFirst, np.array( avgValHis['deca'] ) * 100 )
+plt.plot( xsFirst, np.array( avgValHis['ojas'] ) * 100 )
 
 # Axes
 plt.xlabel( 'Epochs' )
-plt.xticks( xs )
+plt.xticks( xsFirst )
 plt.ylabel( 'Accuracy in %' )
 
 # Legend
@@ -937,20 +937,20 @@ plt.legend( learningRuleNames );
 
 # %%
 # Run Validation accuracy throughout epochs
-plt.figure( figsize=( 15, 10 ) )
-xs = range( 1, epochs + 1 )
+plt.figure( figsize=( 15, 8 ) )
+xsSec = range( 1, epochsFirst + 1 )
 
-for r in range( runs ):
-    plt.subplot( int( runs / 2 ), 2, r + 1 )
+for r in range( runsFirst ):
+    plt.subplot( int( runsFirst / 2 ), 2, r + 1 )
     plt.ylim( [0, 100] )
-    plt.plot( xs, np.array( valHistory['hebb'][r] ) * 100 )
-    plt.plot( xs, np.array( valHistory['deca'][r] ) * 100 )
-    plt.plot( xs, np.array( valHistory['ojas'][r] ) * 100 )
+    plt.plot( xsSec, np.array( valHistory['hebb'][r] ) * 100 )
+    plt.plot( xsSec, np.array( valHistory['deca'][r] ) * 100 )
+    plt.plot( xsSec, np.array( valHistory['ojas'][r] ) * 100 )
     plt.title( f"Run {r}" )
 
     # Axes
     plt.xlabel( 'Epochs' )
-    plt.xticks( xs )
+    plt.xticks( xsSec )
     plt.ylabel( 'Accuracy in %' )
 
 # Legend
@@ -977,35 +977,35 @@ plt.tight_layout();
 # To answer the question an Ojas, Decay and Hebbian networks are trained in the same random order. To monitor their learning speed after every N steps they are tested on the test-dataset.
 
 # %%
-runs = 1
-epochs = 3
-eta = 0.1
-decay = 0.4
-stepSize = 1000
+runsLS1 = 1
+epochsLS1 = 3
+etaLS1 = 0.1
+decayLS1 = 0.4
+stepSizeLS1 = 1000
 
-results, xs, offset = accDuringTrainingEpochs( X_train,
+resultsLS1, xsLS1, offsetLS1 = accDuringTrainingEpochs( X_train,
                                               y_train,
                                               X_val,
                                               y_val,
-                                              runs,
-                                              epochs,
+                                              runsLS1,
+                                              epochsLS1,
                                               lRs,
-                                              stepSize,
-                                              eta=eta,
-                                              decay=decay
+                                              stepSizeLS1,
+                                              eta=etaLS1,
+                                              decay=decayLS1
                                              )
 
 # %%
 # Average results
-avgResults = dict()
-for lR in results:
-    avgResults[lR] = np.average( results[lR], axis=0 )
+avgResultsLS1 = dict()
+for lR in resultsLS1:
+    avgResultsLS1[lR] = np.average( resultsLS1[lR], axis=0 )
 
 # %%
 # Plot results
-plotLineGraph( avgResults, "Accuracy within three epochs on validation data", "Training Examples", "Accuracy in %", lRs, N, offset, xs, False )
+plotLineGraph( avgResultsLS1, "Accuracy within three epochs on validation data", "Training Examples", "Accuracy in %", lRs, stepSizeLS1, offsetLS1, xsLS1, False )
 plt.vlines( 0, 0, 100, color="grey", label="Start Epoch 1/2/3" )
-for i in range( 1, epochs ):
+for i in range( 1, epochsLS1 ):
     plt.vlines( X_train.shape[0] * i, 0, 100, color="grey" )
 plt.legend( loc='lower right' );
 
@@ -1016,7 +1016,7 @@ plt.legend( loc='lower right' );
 
 # %%
 # WARNING: This may take long with small N!
-runs = 10
+runsLS2 = 10
 etas = [0.8, 0.4, 0.2, 0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001]
 N_data = 15000
 N = 750
@@ -1025,10 +1025,10 @@ assert N_data % N == 0, "N_data needs to be divisible by N"
 
 plt.figure( figsize=( 15, 10 ) )
 
-for i, eta in enumerate( etas ):
+for i, etaC in enumerate( etas ):
     # Compute Accuracy
-    print( f"Eta {i + 1}/{len( etas )}: {eta}, ", end="" )
-    resT, xsT =  accDuringLearning( X_train[:N_data], y_train[:N_data], X_val, y_val, runs, lRs, N, eta )
+    print( f"Eta {i + 1}/{len( etas )}: {etaC}, ", end="" )
+    resT, xsT =  accDuringLearning( X_train[:N_data], y_train[:N_data], X_val, y_val, runsLS2, lRs, N, etaC )
 
     # Average
     avgResT = dict()
@@ -1043,7 +1043,7 @@ for i, eta in enumerate( etas ):
         plt.plot( xsT, np.array( avgResT[lR] ) * 100, label=lR )
 
     # Details
-    plt.title( f"Eta {eta}" )
+    plt.title( f"Eta {etaC}" )
     plt.grid( True, axis="y" )
 
     # Legend
@@ -1052,8 +1052,8 @@ for i, eta in enumerate( etas ):
         plt.ylabel( "Accuracy in %" )
         plt.legend( lRs.keys() )
 
-plt.suptitle( f" Accuracy on validation data for first {N_data} training examples, Average of {runs} Runs" );
-plt.tight_layout()
+plt.suptitle( f" Accuracy on validation data for first {N_data} training examples, Average of {runsLS2} Runs" )
+plt.tight_layout();
 
 # %% [markdown]
 # It can observed that an eta between 0.01 and 0.001 seem to work the best for all learning rules. Furthermore
@@ -1070,38 +1070,38 @@ plt.tight_layout()
 
 # %%
 # Train 3 networks
-runs = 1
-epochs = 3
-decayAfter = 0.2 # Decay weights after 20% of dataset have passed
-decay = 0.9
-eta = 0.01
+runs5 = 1
+epochs5 = 3
+decayAfter5 = 0.2 # Decay weights after 20% of dataset have passed
+decay5 = 0.9
+eta5 = 0.01
 
-accuracies, wrongIndices, _, networks = trainNewNetworksAndTest( X_train,
+accuracies5, wrongIndices5, _, networks5 = trainNewNetworksAndTest( X_train,
                                                                  y_train,
                                                                  X_val,
                                                                  y_val,
                                                                  X_test,
                                                                  y_test,
-                                                                 runs=runs,
-                                                                 epochs=epochs,
+                                                                 runs=runs5,
+                                                                 epochs=epochs5,
                                                                  learningRules=learningRules,
-                                                                 decayAfter=decayAfter,
-                                                                 decay=decay,
+                                                                 decayAfter=decayAfter5,
+                                                                 decay=decay5,
                                                                  permute=True,
-                                                                 eta=eta,
+                                                                 eta=eta5,
                                                                  retNetworks=True
                                                                 )
 
 
 # %%
 # Verify the accuracy on testset
-plotAccuracies( [ v[0] for v in accuracies.values() ],
+plotAccuracies( [ v[0] for v in accuracies5.values() ],
              learningRuleNames,
              "Accuracy of networks on Testset"
             )
 
 plotNumberAccFromWrong( y_test,
-                       wrongIndices,
+                       wrongIndices5,
                        0,
                        "Accuracy across Numbers"
                       )
@@ -1110,11 +1110,11 @@ plotNumberAccFromWrong( y_test,
 # It can be seen that the results of the networks are normal. Now the weights are visualized:
 
 # %%
-plotWeights( networks['hebb'][0].getWeights() )
+plotWeights( networks5['hebb'][0].getWeights() )
 plt.suptitle( "Hebb Network Weights" )
-plotWeights( networks['deca'][0].getWeights() )
+plotWeights( networks5['deca'][0].getWeights() )
 plt.suptitle( "Decay Network Weights" )
-plotWeights( networks['ojas'][0].getWeights() )
+plotWeights( networks5['ojas'][0].getWeights() )
 plt.suptitle( "Oja Network Weights" );
 
 # %% [markdown]
@@ -1123,9 +1123,9 @@ plt.suptitle( "Oja Network Weights" );
 # Python automatically scales the picture values to the maximum and minimum value, thus the results from above mean that the ratio of weights is very similar to each other, still the learnt weights are quite different as it can be seen with their maxima:
 
 # %%
-print( f"Hebb Max: {np.max( networks['hebb'][0].getWeights() )}" )
-print( f"Decay Max: {np.max( networks['deca'][0].getWeights() )}" )
-print( f"Oja Max: {np.max( networks['ojas'][0].getWeights() )}" )
+print( f"Hebb Max: {np.max( networks5['hebb'][0].getWeights() )}" )
+print( f"Decay Max: {np.max( networks5['deca'][0].getWeights() )}" )
+print( f"Oja Max: {np.max( networks5['ojas'][0].getWeights() )}" )
 
 # %% [markdown]
 # But if the weight ratios are so similar, why is the prediction accuracy so much better for the Oja network?
@@ -1133,7 +1133,7 @@ print( f"Oja Max: {np.max( networks['ojas'][0].getWeights() )}" )
 # We can see that there is no certain pattern besides the prediction of "0","3","8" and "9" in the missclassification of the other two networks when attempting to label the 5:
 
 # %%
-h, d, o = copy.copy( networks['hebb'][0] ), copy.copy( networks['deca'][0] ), copy.copy( networks['ojas'][0] )
+h, d, o = copy.copy( networks5['hebb'][0] ), copy.copy( networks5['deca'][0] ), copy.copy( networks5['ojas'][0] )
 
 # %%
 examples = 5
@@ -1152,11 +1152,13 @@ for i in range( examples ):
 print( "Accuracy before normalization" )
 print( f" Hebb Accuracy on testset  {runTest( X_test, y_test, h )[0] * 100:.2f}%")
 print( f" Decay Accuracy on testset {runTest( X_test, y_test, d )[0] * 100:.2f}%")
+print( f" Oja Accuracy on testset   {runTest( X_test, y_test, o )[0] * 100:.2f}%")
 h.weights = normalizeRows( h.weights )
 d.weights = normalizeRows( d.weights )
 print( "\nAccuracy after normalization" )
 print( f" Hebb Accuracy on testset  {runTest( X_test, y_test, h )[0] * 100:.2f}%")
 print( f" Decay Accuracy on testset {runTest( X_test, y_test, d )[0] * 100:.2f}%")
+print( f" Oja Accuracy on testset   {runTest( X_test, y_test, o )[0] * 100:.2f}%")
 
 # %% [markdown]
 # This effect is partly due to the distribution of numbers in the training data. The amount of training images with "5" is the lowest, thus the weights in the neuron responsible for the "5" are a lot lower compared to the weights in other neurons. This leads to a higher activation of other neurons because a few shared neurons have an activation which is combined higher then all shared neurons of the "5" together. If you look closely at the visualized weights, you can see that the 5 in the Hebb and Decay Network is less "active" than the other numbers, whereas in the Oja network all numbers except of "1" are similar.
@@ -1172,7 +1174,7 @@ print( f" Decay Accuracy on testset {runTest( X_test, y_test, d )[0] * 100:.2f}%
 e = 0.05
 n = 0
 for x in X_train:
-    n += ( x[x < e].shape[0] + x[x > (1 - e)].shape[0] ) / N_INPUT
+    n += ( x[x < e].shape[0] + x[x > (1 - e)].shape[0] ) / ( 28 * 28 )
 print( f"{n * 100 / X_train.shape[0]:.2f}% of datapoints are within {e} range of 0 or 1")
 
 # %% [markdown]
