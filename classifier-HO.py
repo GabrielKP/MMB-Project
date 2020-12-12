@@ -24,8 +24,8 @@
 # This project builds and compares three networks featuring biologically plausible learning rules to classify digits from the MNIST 10-digit dataset (LeCun, Y., & Cortes, C., & Burges, C.J.C.). How do these networks compare to each other regarding accuracy, learning speed and other features?
 #
 # Neural Networks are very powerful machine learning tools, which currently are one of the most successfull models at predicting human brain activity (Yamins et al., 2014), whilst also achieving human-like performance and performance patterns in specific tasks (Serre, Oliva, & Poggio, 2007). Despite being biologically inspired, the most powerful methods to train Neural Networks rely on "backpropagation" - a process which is difficult to imagine taking place in the human brain (although that seems to be under dispute currently). Besides backpropagation, other learning rules exist which are insipired by biological processes such as Long Term Potentiation and thus seem to be more biologically plausible. This project builds three networks which only differ in those rules and compares them based on a 10-way 28x28 handwritten digit classification task. Following rules are used:
-#     
-#     1. Plain Hebbian rule. 
+#
+#     1. Plain Hebbian rule.
 #     2. Hebbian-Decay rule.
 #     3. Oja's learning rule.
 #
@@ -247,7 +247,7 @@ class Layer():
         assert Xt.shape[0] == yt.shape[0], "X shape does not match y shape!"
         assert X_val.shape[0] == y_val.shape[0], "X shape does not match y shape (Val Data)!"
         assert decayAfter <= 1 and decayAfter > 0, "Decay "
-        
+
         hist = []
 
         # Set up decay
@@ -259,7 +259,7 @@ class Layer():
                 permutation = np.random.permutation( Xt.shape[0] )
             else:
                 permutation = list( range( Xt.shape[0] ) )
-    
+
             for i, idx in enumerate( permutation ):
                 self.learn( Xt[idx], yt[idx], eta )
                 if ( (i + 1) % idxDec ) == 0:
@@ -272,7 +272,7 @@ class Layer():
                 print( f"Val: {correct:.4f} Eta: {eta}" )
 
             eta *= decay
-                
+
         return hist
 
 
@@ -594,18 +594,18 @@ def plotDistribution( labels, title="" ):
     bins = [0,1,2,3,4,5,6,7,8,9,10]
     heights, _ = np.histogram( asDigits( labels ), bins )
     percent = [ i / sum( heights ) * 100 for i in heights ]
-    
+
     f, ax = plt.subplots( 1, 1 )
     ax.bar( bins[:-1], percent, width=0.8, color="grey" )
     ax.set_ylim( [0, 15] )
-    
+
     # axis labels
     ax.set_ylabel( "Percentage of entire dataset in %" )
     ax.set_xlabel( "image labels" )
-    
+
     # x ticks
     ax.set_xticks( bins[:-1] )
-    
+
     # numbers above bars
     for i, v in enumerate( percent ):
         plt.text( bins[i] - 0.4, v + 0.4, f"{v:.2f}%", rotation=45)
@@ -760,7 +760,7 @@ def plotWeights( weights ):
 #
 # \begin{equation}
 # \mathbf{\hat{W}} = \mathbf{W} + \eta \mathbf{y}\mathbf{x}^{T}
-# \end{equation} 
+# \end{equation}
 #
 # ### Hebb with decay rule
 #
@@ -925,7 +925,7 @@ for network in valHistory.keys():
 # ...and then visualized:
 
 # %%
-# Testset accuracy    
+# Testset accuracy
 plotAccuracies( avgAccs.values(), learningRuleNames, f"Classification accuracy on Testset after {epochsFirst} Epochs, Average of {runsFirst} Runs" )
 
 # Accuracy per number
