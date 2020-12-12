@@ -19,16 +19,17 @@
 #
 # Final Project, Gabriel Kressin Palacios
 #
-# # How does a neural-network learning with Hebbs rule compare to a neural-network learning with a Hebb-Decay rule and Oja's rule regarding accuracy, learning speed and other features in a digit classification task?
+# # How do Neural Networks learning with the plain Hebb rule, Hebb-Decay rule and Oja rule respectively compare to each other regarding accuracy, learning speed and other features in a digit classification task?
 #
 # This project builds and compares three networks featuring biologically plausible learning rules to classify digits from the MNIST 10-digit dataset (LeCun, Y., & Cortes, C., & Burges, C.J.C.). How do these networks compare to each other regarding accuracy, learning speed and other features?
 #
-# Neural Networks are very powerful machine learning tools, which currently are one of the most successfull models at predicting human brain activity (Yamins et al., 2014), whilst also achieving similar performance and performance patterns to the human in specific tasks (Serre, Oliva, & Poggio, 2007). Despite being biologically inspired, the most powerful methods to train Neural Networks rely on "backpropagation" - a process which is difficult to imagine taking place in the human brain (although that seems to be under dispute currently). Besides backpropagation, other learning rules exist which are insipired by biological processes such as Long Term Potentiation and thus seem to be more biologically plausible. This project builds three networks which only differ in those rules and evaluates them based on a 10-way 28x28 handwritten digit classification task. Following rules are used:
+# Neural Networks are very powerful machine learning tools, which currently are one of the most successfull models at predicting human brain activity (Yamins et al., 2014), whilst also achieving human-like performance and performance patterns in specific tasks (Serre, Oliva, & Poggio, 2007). Despite being biologically inspired, the most powerful methods to train Neural Networks rely on "backpropagation" - a process which is difficult to imagine taking place in the human brain (although that seems to be under dispute currently). Besides backpropagation, other learning rules exist which are insipired by biological processes such as Long Term Potentiation and thus seem to be more biologically plausible. This project builds three networks which only differ in those rules and compares them based on a 10-way 28x28 handwritten digit classification task. Following rules are used:
 #     
 #     1. Plain Hebbian rule. 
 #     2. Hebbian-Decay rule.
 #     3. Oja's learning rule.
 #
+# How do those learning rules compare to each other in classification accuracy? What could be one of the main differences making one effective and the other not? Furthermore, biological systems tend to be very efficient and effective in their learning capabilities, thus learning speed is taken into account into the comparison. Additionally, other emerging factors of the learning rules could lead to interesting properties in a biological system.
 #
 # The project consists of 3 stages:
 #
@@ -47,7 +48,7 @@
 # %% [markdown]
 # # Stage 1: Definition
 #
-# In this stage the Neurons, Networks, learning Rules and activation Functions are defined and the Data is loaded in.
+# In this stage the Neuron, learning rules and activation functions are defined. Furthermore this section includes all functions and the Data is loaded in.
 #
 # ## The Neuron
 #
@@ -69,14 +70,14 @@
 # - getWeights: returns the weights object
 # - train: trains the Layer on a dataset
 #
-# Furthermore, the cell below features all of the functions used in the project and is organized in this manner:
+# The code-cell below features all of the functions used in the project and is organized in this manner:
 # 1. Imports
 # 2. Functions used in classes
 # 3. Classes
 # 4. General Functions
 # 5. Plotting Functions
 #
-# The project was run on python 3.8.6; To load the project properly following dependencies are needed:
+# The project was created in python 3.8.6; To load the project properly following dependencies are needed:
 # - matplotlib
 # - numpy
 
@@ -491,6 +492,7 @@ def accDuringTrainingEpochs( Xt,
     runs: amount of trial runs
     epochs: how often you go through entire training set
     lRs: learning rules
+    easter: egg :o
     stepSize: how many training examples until accuracy is checked
     eta: learning rate
     decayAfter: Number (0, 1] indicating after how much of the training set has passed the learning rate is decayed
@@ -745,7 +747,11 @@ def plotWeights( weights ):
 # %% [markdown]
 # ## Learning rules
 #
-# The learning rules define how exactly a neuron updates its weights given a specific input and output. The learning rules in this project are 'biologically plausible'. That means they mimick processes of biological systems in some meaningful way, in this case it is locality of the learning rule.
+# The learning rules define how exactly a neuron updates its weights given a specific input and output. The learning rules in this project are 'biologically plausible'. That means they mimick processes of biological systems in some meaningful way, in this case it is mainly the locality of the learning rule.
+#
+# #### Learning rate
+#
+# All learning rules are multiplied by a factor $\eta$ - the learning rate. This factor decides how strongly the weights are influenced by a single training example. Throughout training, this factor often is decayed by a "decaying rate" - another factor which decides how much $\eta$ decreases after a certain amount of time. This is helpful to stabilize the networks throughout time.
 #
 # ### Plain Hebb rule
 #
@@ -806,12 +812,13 @@ lRs = { "Hebbian": r_hebb, "Decay": r_decay, "Oja": r_ojas }
 #
 # The MNIST Database provides 60.000 training examples and 10.000 test examples without needing to preprocess or format them.
 #
-# First, the data needs to be loaded in, there is three things to keep in mind:
+# First, the data needs to be loaded in. There is three things to keep in mind:
 # - The labels are converted into One-Hot-Encodings. ( e.g. 1 -> [0,1,0,0,...], 2 -> [0,0,1,0,...] )
 # - The images have pixel values from 0 to 255, so the data is divided by 255 to have all data between 0 and 1.
 # - 92% of the training examples will be used for training, 8% for validation during training
 
 # %%
+# Load Training Data
 print( "Train & Validation" )
 data = ( readImages( "data/train-images-idx3-ubyte.gz" ) / 255 )
 labels = np.array( [ np.array( [ 1 if x == label else 0 for x in range(10) ] ) for label in readLabels( "data/train-labels-idx1-ubyte.gz" ) ] )
@@ -824,6 +831,7 @@ X_val = data[lindex:]
 y_val = labels[lindex:]
 y_valDigits = asDigits( y_val )
 
+# Load Test Data
 print( "\nTest" )
 X_test = ( readImages( "data/t10k-images-idx3-ubyte.gz" ) / 255 )
 y_test = np.array( [ np.array( [ 1 if x == label else 0 for x in range(10) ] ) for label in readLabels( "data/t10k-labels-idx1-ubyte.gz" ) ] )
@@ -877,7 +885,7 @@ for i in range( 10 ):
 #
 # Three networks are initialized to weights of 0 and trained on the same random permutation of the training data for 10 epochs. This is repeated in 5 runs.
 #
-# The learning rate (eta) is set to 0.1, the decay to 0.4 and the decay happens after an entire epoch has passed.
+# The learning rate $\eta$(eta) is set to 0.1, the decay factor to 0.4 and the learning rate decay happens after an entire epoch has passed.
 #
 # Note: there is a runtime warning which does not affect the outcome of the training.
 
@@ -946,7 +954,7 @@ plt.legend( learningRuleNames );
 
 # %%
 # Run Validation accuracy throughout epochs
-plt.figure( figsize=( 15, 8 ) )
+plt.figure( figsize=( 10, 12 ) )
 xsSec = range( 1, epochsFirst + 1 )
 
 for r in range( runsFirst ):
@@ -975,12 +983,12 @@ plt.tight_layout();
 # 4. The Decay rule shows great variability in classification accuracy on the validation set
 
 # %% [markdown]
-# The second observation is easily explained: Whereas the other rules have some sort of "forgetting" term, the plain Hebbian rule only adds input to expected output relations to the weights. Because these are independent on the current weights of the network, and because addition is associative, the order of training examples does not matter. This is also the reason the accuracy for the plain Hebbian network stays exactly the same through time, as after each epoch the weights just changed in the exact same proportions as in the epoch before.
+# The second observation is easily explained: Whereas the other rules have some sort of "forgetting" term, the plain Hebbian rule only adds input to expected output relations to the weights. Because these are independent on the current weights of the network, and because addition is associative, the order of training examples does not matter. This is also the reason the accuracy for the plain Hebbian network stays very similar through time, as after each epoch the weights just changed in similar proportions as in the epoch before, just with a different learning rate.
 
 # %% [markdown]
 # ## Learning Speed Comparison
 #
-# The Oja network shows a better accuracy then the Hebbian network, the hebbian network performs at maximal classification accuracy just after one epoch. But how much faster exactly does the hebbian network learn?
+# The Hebbian network performs at maximal classification accuracy just after one epoch. But how much faster exactly does the Hebbian network learn?
 # Furthermore, could the learning rate and decay could be tweaked so that the networks learn faster?
 #
 # To answer the question an Ojas, Decay and Hebbian networks are trained in the same random order. To monitor their learning speed after every N steps they are tested on the test-dataset.
@@ -1019,9 +1027,9 @@ for i in range( 1, epochsLS1 ):
 plt.legend( loc='lower right' );
 
 # %% [markdown]
-# This result was quite surprising to me, it shows that the Oja and Decay network almost instantly have quite a high  accuracy and then just oscillate strongly. Only after a new epoch starts and the learning rate decreases the networks become better at classifying. That definitely means decaying the learning rate after an entire epoch is too late and additionally suggests that the learning rate is too high. But when exactly and with which learning rate do the networks reach their best accurcay?
+# This result was quite surprising to me, it shows that the Oja and Decay network almost instantly have quite a high  accuracy and then just oscillate strongly. Only after a new epoch starts and the learning rate decreases the networks become better at classifying. That definitely means decaying the learning rate after an entire epoch is to late and additionally suggests that the learning rate is to high. But when exactly and with which learning rate do the networks reach their best accurcay?
 #
-# To observe better how fast the Decay and Oja network learn, a closer look at the first 10000 training examples and the classification accuracy is taken with different learning rates. The learning rates explored are: \[0.8, 0.4, 0.2, 0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001\]
+# To observe better how fast the Decay and Oja network learn, a closer look at the first 15000 training examples and the classification accuracy is taken with different learning rates. The learning rates explored are: \[0.8, 0.4, 0.2, 0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001\]
 
 # %%
 # WARNING: This may take long with small N!
@@ -1068,7 +1076,7 @@ plt.tight_layout();
 # It can observed that an eta between 0.01 and 0.001 seem to work the best for all learning rules. Furthermore
 # It becomes evident that the Oja network outperforms both other networks significantly and from the get-go.
 #
-# It also becomes evident, that all the networks reach their best classification accuracy already after around 10.000 training examples. Thus from now on the decay will be applied already after 20% of the training data has passed.
+# Moreover, all the networks reach their best classification accuracy already after around 10.000 training examples. Thus from now on the learning rate decay will be applied already after 20% of the training data has passed.
 
 # %% [markdown]
 # ### Why do the networks struggle with the 5?
@@ -1127,9 +1135,9 @@ plotWeights( networks5['ojas'][0].getWeights() )
 plt.suptitle( "Oja Network Weights" );
 
 # %% [markdown]
-# The weights look almost identical!
+# The weights almost look identical!
 #
-# Python automatically scales the picture values to the maximum and minimum value, thus the results from above mean that the ratio of weights is very similar to each other, still the learnt weights are quite different as it can be seen with their maxima:
+# This can be explained by python automatically scaling the picture values to the maximum and minimum value, thus the results from above mean that the ratio of weights is very similar to each other, still the learnt weights are quite different as it can be seen with their maxima:
 
 # %%
 print( f"Hebb Max: {np.max( networks5['hebb'][0].getWeights() )}" )
@@ -1172,7 +1180,7 @@ print( f" Oja Accuracy on testset   {runTest( X_test, y_test, o )[0] * 100:.2f}%
 # %% [markdown]
 # This effect is partly due to the distribution of numbers in the training data. The amount of training images with "5" is the lowest, thus the weights in the neuron responsible for the "5" are a lot lower compared to the weights in other neurons. This leads to a higher activation of other neurons because a few shared neurons have an activation which is combined higher then all shared neurons of the "5" together. If you look closely at the visualized weights, you can see that the 5 in the Hebb and Decay Network is less "active" than the other numbers, whereas in the Oja network all numbers except of "1" are similar.
 #
-# But even with an evenly distributed testset it is to be expected that there will be some disproportionate activation of Neurons in the Hebb and Decay network. For example if there is many images in the training data in which the "8" is a bit further to the left, if now a "5" in the test data is a bit further to the left then the weights of the "8" will be enough to disproportionatly activate the "8" neuron.
+# But even with an evenly distributed testset it is to be expected that there will be some disproportionate activation of Neurons in the Hebb and Decay network. For example if there are many images in the training data in which the "8" is shifted a bit to the left, if a "5" in the test data is also shifted to the left then the weights of the "8" may be enough to disproportionatly activate the "8" neuron. Thus the "5" gets misclassified as "8".
 
 # %% [markdown]
 # ## Detour: Oja and Decay network
@@ -1251,7 +1259,7 @@ accuracies, wrongIndices, _, networks = trainNewNetworksAndTest( X_even,
 
 
 # %% [markdown]
-# For the learning speed comparison the networks are trained with same parameters (but only for 3 epochs) and evaluated all 1000 training examples
+# For the learning speed comparison the networks are trained with same parameters (but only for 3 epochs) and evaluated all 3000 training examples.
 
 # %%
 # Warning! this takes ~ 8 - 15 mins
@@ -1304,7 +1312,9 @@ plotAvgNumberAccFromWrong( y_test, wrongIndices, f"Accuracy across Numbers on Te
 # %% [markdown]
 # ### Learning speed
 #
-# Also here, the Oja network outperforms both other networks from the get go. Since the Oja learning network without normalization and Decay network would perform very similar, this lead of the Oja network also can be attributed to the the normalization. It should be noted that the Decay networks at first seems to learn faster then the Hebbian network, but after that its accuracy decreases again. This effect could be interesting to explore.
+# As in the section before, the Oja network outperforms both other networks. And that directly from the get go of training. Since the Oja network without normalization and Decay network would perform very similar, the lead of the Oja network also can be attributed to normalization.
+#
+# It should be noted that the Decay networks at first seems to learn faster then the Hebbian network, but after that its accuracy decreases again. This effect could be interesting to explore.
 
 # %%
 # Plot results
@@ -1317,7 +1327,7 @@ plt.legend( loc='lower right' );
 # %% [markdown]
 # ### Emerging other effects
 #
-# In this category, the Oja learning rule clearly wins. Due to its properties the weights of the Neurons converge to an eigenvector of the covariance matrix of the input data - which is the first principle component of the data (Oja 1982). This could be very helpful for image further analysis, for instance, finding which pixels are the most important ones.
+# Again, the Oja learning rule clearly wins. Due to its properties the weights of the Neurons converge to an eigenvector of the covariance matrix of the input data - which is the first principle component of the data (Oja 1982). This could be very helpful for further image analysis, for instance, finding which pixels are the most important ones, but also could lead to interesting effects in a biological system inheriting such traits. An example could be that through this method the biological system has (mathematically accurate!) methods to assess the importance of certain aspects in the input data.
 #
 # A visualization of the resulting PCA eigenvector can be seen below, in which bright pixels indicate a higher explanation of variance in the corresponing pixel.
 
@@ -1326,9 +1336,9 @@ plotWeights( networks['ojas'][0].getWeights() )
 plt.suptitle( "Oja Network Weights / Principal Components of network in first run" );
 
 # %% [markdown]
-# ## Conclusion: How does a neural-network learning with Hebbs rule compare to a neural-network learning with a Hebb-Decay rule and Oja's rule regarding accuracy, learning speed and other features in a digit classification task?
+# ## Conclusion: How do Neural Networks learning with the plain Hebb rule, Hebb-Decay rule and Oja rule respectively compare to each other regarding accuracy, learning speed and other features in a digit classification task?
 #
-# The Oja learning rule beats both other learning rules significantly in every category. It does not only learn faster, but also classifies digits more accuractly with a difference close to 20%. In this 10-way digit classification task, this is mainly due to the normalization, because of which the classification accuracy significantly improves. Furthermore the properties of the Oja network lead to the nice effect of performing an approximate PCA.
+# The Oja learning rule beats both other learning rules significantly in every category. It does not only learn faster, but also classifies digits more accuractly with a difference close to 20%. In this 10-way digit classification task, this is mainly due to the normalization, because of which the classification accuracy significantly improves. Furthermore the properties of the Oja network lead to the additional effect of performing an approximate PCA.
 #
 # Still, in comparison to the state of the art classification methods the Oja network is long shot away. Furthermore the visualization of weights shows that the network very likely will not generalize at all - for example a 1 which is shifted to the left will probably not be classified correctly. This is in contrast to new state of the art networks, which due to convolutional layers may generalize better.
 # It would be interesting to explore whether a multi-layer structure could be feasibly implemented without violating biological principles and if that would have a positive effect on classification accuracy.
@@ -1345,6 +1355,7 @@ plt.suptitle( "Oja Network Weights / Principal Components of network in first ru
 # - How would recurrance affect the prediction accuracy?
 # - How would a competetive structure affect accuracy?
 # - What would happen for all-connected networks?
+# - Besides the PCA, is there other emerging factors?
 
 # %% [markdown]
 # # References
