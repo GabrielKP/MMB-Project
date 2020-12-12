@@ -23,7 +23,7 @@
 #
 # This project builds and compares three networks featuring biologically plausible learning rules to classify digits from the MNIST 10-digit dataset (LeCun, Y., & Cortes, C., & Burges, C.J.C.). How do these networks compare to each other regarding accuracy, learning speed and other features?
 #
-# The networks are built to classify 28x28 pixel images of handwritten digits correctly to a digit from 0 to 9 and only differ in their learning rule:
+# Neural Networks are very powerful machine learning tools, which currently are one of the most successfull models at predicting human brain activity (Yamins et al., 2014), whilst also achieving similar performance and performance patterns to the human in specific tasks (Serre, Oliva, & Poggio, 2007). Despite being biologically inspired, the most powerful methods to train Neural Networks rely on "backpropagation" - a process which is difficult to imagine taking place in the human brain (although that seems to be under dispute currently). Besides backpropagation, other learning rules exist which are insipired by biological processes such as Long Term Potentiation and thus seem to be more biologically plausible. This project builds three networks which only differ in those rules and evaluates them based on a 10-way 28x28 handwritten digit classification task. Following rules are used:
 #     
 #     1. Plain Hebbian rule. 
 #     2. Hebbian-Decay rule.
@@ -1349,10 +1349,14 @@ plt.suptitle( "Oja Network Weights / Principal Components of network in first ru
 # %% [markdown]
 # # References
 #
+# Amato, G., Carrara, F., Falchi, F., Gennaro, C., & Lagani, G.(2019). Hebbian Learning Meets Deep Convolutional Neural Networks. In: Ricci E., Rota Bulò S., Snoek C., Lanz O., Messelodi S., Sebe N. (eds) Image Analysis and Processing – ICIAP 2019. ICIAP 2019. Lecture Notes in Computer Science, vol 11751. Springer, Cham. https://doi.org/10.1007/978-3-030-30642-7_29
+#
 # LeCun, Y., Cortes, C., & Burges, C.J.C., The MNIST Database of Handwritten Digits \[Accessed 26.11.2020 18:00 CET\]. http://yann.lecun.com/exdb/mnist/
 #
-# Amato, G., Carrara, F., Falchi, F., Gennaro, C., & Lagani, G.(2019). Hebbian Learning Meets Deep Convolutional Neural Networks. In: Ricci E., Rota Bulò S., Snoek C., Lanz O., Messelodi S., Sebe N. (eds) Image Analysis and Processing – ICIAP 2019. ICIAP 2019. Lecture Notes in Computer Science, vol 11751. Springer, Cham. https://doi.org/10.1007/978-3-030-30642-7_29
+# Morris R. G. (1999). D.O. Hebb: The Organization of Behavior, Wiley: New York; 1949. Brain research bulletin, 50(5-6), 437. https://doi.org/10.1016/s0361-9230(99)00182-3
 #
 # Oja, E. (1982). Simplified neuron model as a principal component analyzer. In: J. Math. Biology 15, 267–273. https://doi.org/10.1007/BF00275687
 #
-# Morris R. G. (1999). D.O. Hebb: The Organization of Behavior, Wiley: New York; 1949. Brain research bulletin, 50(5-6), 437. https://doi.org/10.1016/s0361-9230(99)00182-3
+# Serre, T., Oliva, A., &amp; Poggio, T. (2007). A feedforward architecture accounts for rapid categorization. Proceedings of the National Academy of Sciences, 104(15), 6424-6429. doi:10.1073/pnas.0700622104
+#
+# Yamins, D. L., Hong, H., Cadieu, C. F., Solomon, E. A., Seibert, D., &amp; Dicarlo, J. J. (2014). Performance-optimized hierarchical models predict neural responses in higher visual cortex. Proceedings of the National Academy of Sciences, 111(23), 8619-8624. doi:10.1073/pnas.1403112111
