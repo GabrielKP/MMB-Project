@@ -59,6 +59,8 @@
 #
 # Whereas $\mathbf{w}$ is a vector of the weights of the input and $f$ is the so called 'activation function' - a potentially nonlinear function.
 #
+# ## The implementation
+#
 # To make the computations more efficient, multiple Neurons are stacked together in a 'Layer'. In that case, multiple weight Vectors $\mathbf{w}$ are 'stacked' on top of each other creating a weight matrix $\mathbf{W}$ and the output becomes a vector of outputs.
 #
 # The 'Layer' class below implements the above mentioned framework without specifying any details on activation function and how the neuron learns. The 'Layer' class takes learning rule and activation function as initializing arguments and then provides following functions:
@@ -67,7 +69,12 @@
 # - getWeights: returns the weights object
 # - train: trains the Layer on a dataset
 #
-# Furthermore, the cell below features all of the functions used in the project.
+# Furthermore, the cell below features all of the functions used in the project and is organized in this manner:
+# 1. Imports
+# 2. Functions used in classes
+# 3. Classes
+# 4. General Functions
+# 5. Plotting Functions
 #
 # The project was run on python 3.8.6; To load the project properly following dependencies are needed:
 # - matplotlib
@@ -268,7 +275,7 @@ class Layer():
         return hist
 
 
-# Other Functions
+# General Functions
 
 def runPrintTest( X, y, network, name="" ):
     """
@@ -573,6 +580,8 @@ def plotData( images, labels, n ):
         plt.text( x=10, y=-10, s=labels[x], fontsize=21 )
         plt.imshow( images[x], cmap=plt.cm.Greys )
 
+
+# Plotting Functions
 
 def plotDistribution( labels, title="" ):
     """
