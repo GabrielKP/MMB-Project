@@ -17,7 +17,7 @@
 # %% [markdown]
 # AS.200.313, Models of Mind and Brain, Prof. Honey
 #
-# Final Project, Gabriel Kressin
+# Final Project, Gabriel Kressin Palacios
 #
 # # How does a neural-network learning with Hebbs rule compare to a neural-network learning with a Hebb-Decay rule and Oja's rule regarding accuracy, learning speed and other features in a digit classification task?
 #
@@ -859,12 +859,6 @@ for i in range( 10 ):
     numsLabels.append( y_train[dig == i] )
 
 # %% [markdown]
-# Furthermore it is important to note, that most of the pixel values will be either very close to 0 or to very close one, as most of the pixels are either black or white, but rarely in between.
-
-# %%
-numsData[0]
-
-# %% [markdown]
 # # Stage 2: Training & Exploration
 #
 # In this section the three learning rules are used to train networks. The accuracies are displayed, the learning speed is analyzed and the classification accuracy of the "5" is explored.
@@ -1170,9 +1164,19 @@ print( f" Decay Accuracy on testset {runTest( X_test, y_test, d )[0] * 100:.2f}%
 # But even with an evenly distributed testset it is to be expected that there will be some disproportionate activation of Neurons in the Hebb and Decay network. For example if there is many images in the training data in which the "8" is a bit further to the left, if now a "5" in the test data is a bit further to the left then the weights of the "8" will be enough to disproportionatly activate the "8" neuron.
 
 # %% [markdown]
-# ### Detour: Oja and Decay network
+# ## Detour: Oja and Decay network
 #
-# As a short detour it should be noted, that in context of this dataset the Oja and Decay learning rule behave the same way if the normalization is not taken into account. This effect is the result of most data points being either close to 0 1. When looking at the at the learning rules it becomes evident that for close to 0 and close to 1 values the learning rules behave in essence the same, as the y is the only difference in between them:
+# As a short detour it should be noted, that in context of this dataset the Oja and Decay learning rule behave the same way if the normalization is not taken into account. This effect is the result of most pixel values (data points) being either close to zero or to one, as most of the pixels are white (0), some are black (1), but they are rarely in between:
+
+# %%
+e = 0.05
+n = 0
+for x in X_train:
+    n += ( x[x < e].shape[0] + x[x > (1 - e)].shape[0] ) / N_INPUT
+print( f"{n * 100 / X_train.shape[0]:.2f}% of datapoints are within {e} range of 0 or 1")
+
+# %% [markdown]
+# When looking at the at the learning rules it becomes evident that for close to 0 and close to 1 values the learning rules in essence behave the same, as $\mathbf{y}$ is the only difference in between them:
 #
 # Decay:
 # \begin{equation}
@@ -1185,6 +1189,8 @@ print( f" Decay Accuracy on testset {runTest( X_test, y_test, d )[0] * 100:.2f}%
 # \end{equation}
 
 # %% [markdown]
+# ## Final Training
+#
 # With all the information of the sections above, three new networks are trained multiple times on an evenly distributed dataset to draw a final conclusion.
 
 # %% [markdown]
@@ -1216,7 +1222,7 @@ decayAfter = 0.1
 decay = 0.95
 eta = 0.001
 
-accuracies, wrongIndices, _, _ = trainNewNetworksAndTest( X_even,
+accuracies, wrongIndices, _, networks = trainNewNetworksAndTest( X_even,
                                                                  y_even,
                                                                  X_val,
                                                                  y_val,
@@ -1229,7 +1235,7 @@ accuracies, wrongIndices, _, _ = trainNewNetworksAndTest( X_even,
                                                                  decay=decay,
                                                                  permute=True,
                                                                  eta=eta,
-                                                                 retNetworks=False
+                                                                 retNetworks=True
                                                                 )
 
 
@@ -1287,7 +1293,7 @@ plotAvgNumberAccFromWrong( y_test, wrongIndices, f"Accuracy across Numbers on Te
 # %% [markdown]
 # ### Learning speed
 #
-# Also here, the Oja network outperforms both other networks from the get go. This is mainly due to the normalization. Because
+# Also here, the Oja network outperforms both other networks from the get go. Since the Oja learning network without normalization and Decay network would perform very similar, this lead of the Oja network also can be attributed to the the normalization. It should be noted that the Decay networks at first seems to learn faster then the Hebbian network, but after that its accuracy decreases again. This effect could be interesting to explore.
 
 # %%
 # Plot results
@@ -1306,12 +1312,12 @@ plt.legend( loc='lower right' );
 
 # %%
 plotWeights( networks['ojas'][0].getWeights() )
-plt.suptitle( "Oja Network Weights / Principal Components" );
+plt.suptitle( "Oja Network Weights / Principal Components of network in first run" );
 
 # %% [markdown]
-# ## Conclusion: How does a neural-network-classifier learning with Hebbs rule compare to a neural-network-classifier learning with Oja's rule?
+# ## Conclusion: How does a neural-network learning with Hebbs rule compare to a neural-network learning with a Hebb-Decay rule and Oja's rule regarding accuracy, learning speed and other features in a digit classification task?
 #
-# The Oja learning Rule beats both other learning rules in every category. In this task, this is mainly due to the normalization, because of which the classification accuracy significantly improves. Furthermore the properties of the Oja network lead to the nice effect of performing an approximate PCA.
+# The Oja learning rule beats both other learning rules significantly in every category. It does not only learn faster, but also classifies digits more accuractly with a difference close to 20%. In this 10-way digit classification task, this is mainly due to the normalization, because of which the classification accuracy significantly improves. Furthermore the properties of the Oja network lead to the nice effect of performing an approximate PCA.
 #
 # Still, in comparison to the state of the art classification methods the Oja network is long shot away. Furthermore the visualization of weights shows that the network very likely will not generalize at all - for example a 1 which is shifted to the left will probably not be classified correctly. This is in contrast to new state of the art networks, which due to convolutional layers may generalize better.
 # It would be interesting to explore whether a multi-layer structure could be feasibly implemented without violating biological principles and if that would have a positive effect on classification accuracy.
@@ -1321,10 +1327,13 @@ plt.suptitle( "Oja Network Weights / Principal Components" );
 #
 # There is many interesting things to have a longer look at:
 #
+# - Why does the Decay rule decrease in its classification accuracy?
 # - How would a spiking neural network with the same learning rules do, compared to the models shown here.
-# - Is there a better and actually effective way to train the intermediate layers?
+# - Is there an effective way to incorporate and train intermediate layers?
 # - How would a convoutional architecture perform?
 # - How would recurrance affect the prediction accuracy?
+# - How would a competetive structure affect accuracy?
+# - What would happen for all-connected networks?
 
 # %% [markdown]
 # # References
@@ -1336,5 +1345,3 @@ plt.suptitle( "Oja Network Weights / Principal Components" );
 # Oja, E. (1982). Simplified neuron model as a principal component analyzer. In: J. Math. Biology 15, 267–273. https://doi.org/10.1007/BF00275687
 #
 # Morris R. G. (1999). D.O. Hebb: The Organization of Behavior, Wiley: New York; 1949. Brain research bulletin, 50(5-6), 437. https://doi.org/10.1016/s0361-9230(99)00182-3
-
-# %%
